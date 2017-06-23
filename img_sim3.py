@@ -14,7 +14,7 @@ import tensorflow as tf
 from tensorflow.python.ops import init_ops
 from tensorflow.contrib.losses.python.losses import loss_ops
 import logging
-import os.path
+import dataloader
 
 IMG_SIZE = 128
 
@@ -59,6 +59,7 @@ def loadFeatures(files):
     return data
 
 
+
 def load_dataset_list(datasetconf):
 	x1_list = []
 	x2_list = []
@@ -92,7 +93,53 @@ def load_dataset_list(datasetconf):
 	#print label_list
 	return x1_list, x2_list, label_list
 	
-def load_dataset(trainlistconf = None, testlistconf = None):
+
+#input: labbel_type = onehot or scalar
+# it will return you : [0,1] or 1, value for a label
+def list_to_data(inlist, label_type = "onehot"):
+	x1_list = []
+	x2_list = []
+	label_list = []
+	#split line into lists
+	for line in inlist:
+		line = line.strip()
+		if line=='': continue
+		cols = line.split('\t')
+		if len(cols) <  3:
+			logging.debug('input fields less than 3')
+			continue
+		if cols[0].strip()== "": 
+			continue
+		if cols[1].strip()== "": 
+			continue
+		if cols[2].strip()== "": 
+			continue
+		#string label to int label
+		try:
+			val_y = int(cols[2])
+		except:
+			continue	
+		x1_list.append(cols[0])
+		x2_list.append(cols[1])
+		label_list.append(val_y)
+
+		#print cols[0]
+		#print cols[1]
+		#print (val_y)
+	x1 = loadFeatures(x1_list)
+	x2 = loadFeatures(x2_list)
+	if label_type == "onehot":
+		label_list = denseToOneHot(np.array(label_list),2)
+	elif label_type == "scalar":
+		label_list = np.reshape(label_list,(-1,1))
+	
+	return x1, x2, label_list
+	
+
+
+#input: labbel_type = onehot or scalar
+# it will return you : [0,1] or 1, value for a label
+def load_dataset(trainlistconf = None, testlistconf = None, label_type = "onehot"):
 	#load train list:
 	#trainlistconf = "train_set_conf.txt"
 	#trainlistconf = "train_set_conf_1k.txt"
@@ -112,13 +159,16 @@ def load_dataset(trainlistconf = None, testlistconf = None):
 	#load features
 	x1 = loadFeatures(x1_list)
 	x2 = loadFeatures(x2_list)
-	#label_list = denseToOneHot(np.array(label_list),2)
-	label_list = np.reshape(label_list,(-1,1))
-
 	t_x1 = loadFeatures(t_x1_list)
 	t_x2 = loadFeatures(t_x2_list)
-	#t_label_list = denseToOneHot(np.array(t_label_list),2)
-	t_label_list = np.reshape(t_label_list,(-1,1))
+
+	if label_type == "onehot":
+		label_list = denseToOneHot(np.array(label_list),2)
+		t_label_list = denseToOneHot(np.array(t_label_list),2)
+	elif label_type == "scalar":
+		label_list = np.reshape(label_list,(-1,1))
+		t_label_list = np.reshape(t_label_list,(-1,1))
+
 
 	#print label_list
 	#print t_label_list
@@ -148,22 +198,16 @@ def max_pool_2x2(x):
 	return tf.nn.max_pool(x, ksize = [1,2,2,1], strides = [1,2,2,1], padding = 'SAME')
 
 
+
+
 def get_accuracy(in_x1, in_x2, ideal_y):
-	global y_conv
-	y_pre = sess.run(y_conv, feed_dict = {x1:in_x1, x2:in_x2, keep_prob:1})
-	correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(ideal_y,1))
+	global logits 
+	y_pre = sess.run(logits, feed_dict = {x1:in_x1, x2:in_x2, keep_prob:1})
+	correct_prediction = tf.equal(tf.argmax(logits,1), tf.argmax(ideal_y,1))
 	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 	result = sess.run(accuracy, feed_dict={x1: in_x1, x2:in_x2, y:ideal_y, keep_prob:1})
 	return result
 
-
-def get_accuracy_old(in_x1, in_x2, ideal_y):
-	global y_conv
-	y_pre = sess.run(y_conv, feed_dict = {x1:in_x1, x2:in_x2, keep_prob:1})
-	correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(ideal_y,1))
-	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-	result = sess.run(accuracy, feed_dict={x1: in_x1, x2:in_x2, y:ideal_y, keep_prob:1})
-	return result
 
 
 
@@ -172,7 +216,8 @@ with tf.name_scope("inputs"):
 	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input")
 	x2 = tf.placeholder(tf.float32,  [None, IMG_SIZE * IMG_SIZE * 3], name = "x2_input")
 	#y = tf.placeholder(tf.float32, [None, 2])
-	y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	#y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	y = tf.placeholder(tf.float32,[None,2], name = "y_input")	
 	keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 
 
@@ -197,7 +242,13 @@ with tf.name_scope("leftlayers"):
 	h_pool2 = max_pool_2x2(h_conv2)	#16->8
 
 	h_pool2_flat = tf.reshape(h_pool2, [-1, 8*8*64])
-	h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+	#fc1 layer:
+	W_fc1 =tf.get_variable("W_fc1", [8*8*64, 512])
+	b_fc1 = tf.get_variable("b_fc1", [512])
+	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
 
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
@@ -216,42 +267,44 @@ with tf.name_scope("rightlayers"):
 	h2_conv2 = tf.nn.relu(conv2d(h2_pool1, W2_conv2) + b2_conv2) #32->16
 	h2_pool2 = max_pool_2x2(h2_conv2)	#16->8
 	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 8*8*64])
-	h2_pool2_flat = tf.Print(h2_pool2_flat,[h2_pool2_flat], "h2_pool2_flat:")
+	#h2_pool2_flat = tf.Print(h2_pool2_flat,[h2_pool2_flat], "h2_pool2_flat:")
+
+	#fc1  layer
+	W2_fc1 = tf.get_variable("W_fc2", [8*8*64, 512])
+	b2_fc1 = tf.get_variable("b_fc2", [512])
+	h2_fc1 = tf.nn.relu(tf.matmul(h2_pool2_flat, W2_fc1) + b2_fc1)
+	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
 
 #---------------set up the combinationlayer
-#fc1 layer
-'''
-W_fc1 = tf.get_variable("W_fc1", [8*8*64,512])
-W2_fc1 = tf.get_variable("W2_fc1", [8*8*64,512])
-b_fc1 = tf.get_variable("b_fc1", [512])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + tf.matmul(h2_pool2_flat, W2_fc1)+ b_fc1)
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+# combine layer
+with tf.name_scope("combinationlayer"):
+	W_cb1 = tf.get_variable("W_cb1", [8*8*64,512])
+	W2_cb1 = tf.get_variable("W2_cb1", [8*8*64,512])
+	b_cb1 = tf.get_variable("b_cb1", [512])
+	h_cb1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_cb1) + tf.matmul(h2_pool2_flat, W2_cb1)+ b_cb1)
+	h_cb1_drop = tf.nn.dropout(h_cb1, keep_prob)
 
-#------------------- test one side output ----------------------
-#fc1 layer:
-#W_fc1 =tf.get_variable("W_fc1", [8*8*64, 512])
-#b_fc1 = tf.get_variable("b_fc1", [512])
-#h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
-#h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 #fc2 layer
-W_fc2 = tf.get_variable("W_fc2", [512, 2])
-b_fc2 = tf.get_variable("b_fc2", [2])
-#b_fc2 = tf.Print(b_fc2, [b_fc2], "b_fc2:")
-logits = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
-logits = tf.Print(logits, [logits],"logits:")
-y_conv = tf.nn.softmax(logits)
-y_conv = tf.Print(y_conv, [y_conv], "Y_Conv:")
+with tf.name_scope("softmaxlayer"):
+	W_sf1 = tf.get_variable("W_sf1", [512, 2])
+	b_sf1 = tf.get_variable("b_sf1", [2])
+	logits = tf.matmul(h_cb1_drop, W_sf1) + b_sf1
+	#logits = tf.Print(logits, [logits],"logits:")
+	#y_conv = tf.nn.softmax(logits)
+	#y_conv = tf.Print(y_conv, [y_conv], "y_Conv:")
+
+
 
 #---------------- set up the train_step
-#cross_entropy = -tf.reduce_sum(y * tf.log(y_conv+1e-50), reduction_indices=[1])
+#cross_entropy = -tf.reduce_sum(y_conv * tf.log(y), reduction_indices=[1])
 #cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(y_conv+1e-50), reduction_indices=[1]))
-#cross_entropy = loss_ops.softmax_cross_entropy(logits, y)
-#cross_entropy = tf.Print(cross_entropy, [cross_entropy], "cost") #print to the console 
-#train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-'''
+cross_entropy = loss_ops.softmax_cross_entropy(logits, y)
+cross_entropy = tf.Print(cross_entropy, [cross_entropy], "cost:") #print to the console 
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
-#---------------set up the train step 2
+#---------------set up the train step 2, loss type 1: L2 distance
+'''
 l2diff = tf.sqrt(tf.reduce_sum(tf.square(tf.sub(h_pool2_flat,h2_pool2_flat)), reduction_indices = 1))
 l2diff = tf.Print(l2diff, [l2diff], "l2diff:")
 margin = tf.to_float(1.)
@@ -263,6 +316,11 @@ loss_mean = tf.reduce_mean(loss)
 
 
 train_step = tf.train.AdamOptimizer(1e-4).minimize(loss_mean)
+'''
+#---------------- set up the train_step, loss type 2: cross entropy of two vectores.
+
+
+
 #init session
 sess = tf.Session()
 writer=tf.train.SummaryWriter('logs/', sess.graph)
@@ -274,8 +332,35 @@ sess.run(init)
 def print_usage():
 	print "img_sim.py train_data_conf test_data_conf"
 
+def train_with_epoch():
+	#loader = dataloader.DataLoader("dataset_conf_path.txt")
+	loader = dataloader.DataLoader("face_dataset_conf_path.txt")
+	loader.load_list()
+	test_list = loader.next_epoch_list(150,150)
+	
+	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
+	for i in range(50):
+		print "epoch %d"%i
+		train_list = loader.next_epoch_list(100,100)
+		print loader.pos_idx
+		print loader.neg_idx
+		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
+		if i % 1 == 0:
+			print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
+		# train the same epoch for 20 times
+		for j in range(15):	
+			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
+		if i %1 == 0:
+			print "%d th turn"%i
+			print"on test:", (get_accuracy(t_x1, t_x2, t_y))
+			print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
+			
+			
 
 if __name__ == '__main__':
+	train_with_epoch()
+	sys.exit()
+	'''
 	print_usage()
 	train_set_name = None 
 	test_set_name = None	
@@ -284,25 +369,20 @@ if __name__ == '__main__':
 		test_set_name = sys.argv[2]	
 	in_x1, in_x2, in_y, t_x1, t_x2, t_y = load_dataset(train_set_name, test_set_name)
 
-	for i in range(200):
-	#for i in range(200):
-		sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.9})
+
+	#for i in range(l):
+	for i in range(1000):
+		sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.7})
 		
-		#tmp_y_conv = sess.run(y_conv,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.9})
-		#print tmp_y_conv 
+		#tmp_entropy = sess.run(cross_entropy, feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:1})
+		#print "entropy", tmp_entropy
+		#print "tmp_y_conv:", tmp_y_conv 
+		
+
 		#print(get_accuracy(t_x1, t_x2, t_y))
 		if i % 50 ==0:	
-			print "%d th turn", i
-			#print(get_accuracy(t_x1, t_x2, t_y))
-			left_emb = sess.run(h_pool2_flat, feed_dict={x1:t_x1})
-			#print "left:"
-			#print left_emb
-
-			right_emb = sess.run(h2_pool2_flat, feed_dict ={x2:t_x2}) 
-			#print "right:"
-			#print right_emb
-
-			tmploss = sess.run(loss_mean,  feed_dict = {x1:t_x1, x2:t_x2, y:t_y, keep_prob:1})
-			print tmploss
-		
-
+			print "%d th turn"%i
+			print(get_accuracy(t_x1, t_x2, t_y))
+			print(get_accuracy(in_x1, in_x2, in_y))
+				
+	'''

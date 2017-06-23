@@ -26,11 +26,13 @@ def do_label(unjudgedlist, ofstr):
             if k  is None:
                 print ("error input:", line)
                 continue
-            if k == 27:
+            if k == 27: #esc; escape
                 break
-            if k == ord('y'):
+            if k == 32: #space bar; not sure
+                judged_file.writelines(line + ",-1\n")
+            if k == ord('y'):   # same
                 judged_file.writelines(line + ",1\n")
-            if k == ord('n'):
+            if k == ord('n'):   # not the same
                 judged_file.writelines(line + ",0\n")
         except:
             print("error")
@@ -42,23 +44,42 @@ def do_label(unjudgedlist, ofstr):
 # read file:
 # sid, pic1, pic2, ..., ...,
 # return dic: key = "sid, pic1, pic2", value = line
-def load_pair_dic(fstr):
+#label = "both, pos, neg"
+def load_pair_dic(fstr, label="both"):
     dic = {}
     if not os.path.exists(fstr): return dic
     with open(fstr, "r") as f:
             for line in f:
                 line = line.strip()
                 cols = line.split(",")
-                if len(cols)< 3: continue
-                key = ",".join(cols[:3])
-                dic[key] = line
+                if len(cols)< 4: continue
+                if (label == "pos"):
+                    if cols[3] == "1":
+                        key = ",".join(cols[:3])
+                        dic[key] = line
+
+                elif (label == "neg"):
+                    if cols[3] == "0":
+                        key = ",".join(cols[:3])
+                        dic[key] = line
+                else:
+                    key = ",".join(cols[:3])
+                    dic[key] = line
+
     f.close()
     return dic
 
+
+def get_unjudged_pos_list(raw_list_fstr, judged_list_fstr):
+    return get_unjudged_list(raw_list_fstr,judged_list_fstr, "pos")
+
+def get_unjudged_neg_list(raw_list_fstr, judged_list_fstr):
+    return get_unjudged_list(raw_list_fstr,judged_list_fstr, "neg")
+
 # get unjudged list
-def get_unjudged_list(raw_list_fstr, judged_list_fstr):
+def get_unjudged_list(raw_list_fstr, judged_list_fstr, sample_lablel="both"):
     l = []
-    raw_dic = load_pair_dic(raw_list_fstr)
+    raw_dic = load_pair_dic(raw_list_fstr, sample_lablel)
     judged_dic = load_pair_dic(judged_list_fstr)
     for k in raw_dic.keys():
         if k in judged_dic:
@@ -67,7 +88,7 @@ def get_unjudged_list(raw_list_fstr, judged_list_fstr):
     return l
 
 def show_img(imgfstr1, imgfstr2, path = None):
-    default_path = "E:\work@bing\linkedin\img_data\images\\"
+    default_path = "E:\work@bing\linkedin\img_data\images_face\\"
     if path == None:
         path = default_path
 
@@ -89,7 +110,7 @@ def show_img(imgfstr1, imgfstr2, path = None):
 
     while True:
         k = cv2.waitKey(0)
-        if k == ord('y') or k == ord('n') or k == 27: # 27 = escape
+        if k == ord('y') or k == ord('n') or k == 27 or k == 32: # 27 = escape
             cv2.destroyAllWindows()
             break
 
@@ -98,6 +119,8 @@ def show_img(imgfstr1, imgfstr2, path = None):
 
 if __name__ == "__main__":
     #show_img("test1.jpeg", "test1.jpeg", "./")
-    l = get_unjudged_list("rawlist.txt", "labeledlist.txt")
+    #l = get_unjudged_list("rawlist.txt", "labeledlist.txt")
+    #l = get_unjudged_pos_list("rawlist.txt", "labeledlist.txt")
+    l = get_unjudged_neg_list("rawlist.txt", "labeledlist.txt")
     do_label(l, "labeledlist.txt")
 

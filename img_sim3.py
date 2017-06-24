@@ -367,7 +367,14 @@ def train_with_epoch():
 	save_path = saver.save(sess,filename) 
 	print("trained model saved to:", save_path)
 
+def load_model(netfilestr):
+	saver = tf.train.Saver()
+	saver.restore(sess, netfilestr)
+	print("weights:", sess.run(W_conv1))
+	print("biases:", sess.run(b_conv1))
+
 if __name__ == '__main__':
 	train_with_epoch()
+	#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 	sys.exit()
 	

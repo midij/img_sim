@@ -15,6 +15,7 @@ from tensorflow.python.ops import init_ops
 from tensorflow.contrib.losses.python.losses import loss_ops
 import logging
 import dataloader
+from time import gmtime, strftime
 
 IMG_SIZE = 128
 
@@ -359,34 +360,14 @@ def train_with_epoch():
 			print"on test:", (get_accuracy(t_x1, t_x2, t_y))
 			print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
 			
-			
+	# save the trained model	
+	saver = tf.train.Saver()
+	tt = strftime("%Y-%m-%d_%H_%M_%S", gmtime())
+	filename = "nets/save_net_"+ tt +".ckpt"
+	save_path = saver.save(sess,filename) 
+	print("trained model saved to:", save_path)
 
 if __name__ == '__main__':
 	train_with_epoch()
 	sys.exit()
-	'''
-	print_usage()
-	train_set_name = None 
-	test_set_name = None	
-	if len(sys.argv)==3:
-		train_set_name = sys.argv[1]
-		test_set_name = sys.argv[2]	
-	in_x1, in_x2, in_y, t_x1, t_x2, t_y = load_dataset(train_set_name, test_set_name)
-
-
-	#for i in range(l):
-	for i in range(1000):
-		sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.7})
-		
-		#tmp_entropy = sess.run(cross_entropy, feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:1})
-		#print "entropy", tmp_entropy
-		#print "tmp_y_conv:", tmp_y_conv 
-		
-
-		#print(get_accuracy(t_x1, t_x2, t_y))
-		if i % 50 ==0:	
-			print "%d th turn"%i
-			print(get_accuracy(t_x1, t_x2, t_y))
-			print(get_accuracy(in_x1, in_x2, in_y))
-				
-	'''
+	

@@ -334,7 +334,10 @@ def print_usage():
 
 def train_with_epoch():
 	#loader = dataloader.DataLoader("dataset_conf_path.txt")
-	loader = dataloader.DataLoader("face_dataset_conf_path.txt")
+	#loader = dataloader.DataLoader("face_dataset_conf_path.txt")
+
+	img_path= "./data/image_face_v0/images_face/"
+	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
 	test_list = loader.next_epoch_list(150,150)
 	
@@ -348,7 +351,8 @@ def train_with_epoch():
 		if i % 1 == 0:
 			print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
 		# train the same epoch for 20 times
-		for j in range(15):	
+		#for j in range(15):	
+		for j in range(15):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i %1 == 0:
 			print "%d th turn"%i

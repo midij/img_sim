@@ -339,10 +339,10 @@ def train_with_epoch():
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
-	test_list = loader.next_epoch_list(150,150)
+	test_list = loader.next_epoch_list(500,500)
 	
 	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
-	for i in range(50):
+	for i in range(200):
 		print "epoch %d"%i
 		train_list = loader.next_epoch_list(100,100)
 		print loader.pos_idx

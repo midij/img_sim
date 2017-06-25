@@ -28,10 +28,6 @@ def denseToOneHot(labels_dense, num_classes):
     return labels_one_hot
 
 
-# @deprecated
-def loadFileLists():
-    dummylist = ['./data/test.jpg']
-    return dummylist
 	
 
 def loadFeatures(files):
@@ -135,49 +131,28 @@ def list_to_data(inlist, label_type = "onehot"):
 		label_list = np.reshape(label_list,(-1,1))
 	
 	return x1, x2, label_list
-	
 
+def list_to_predict_data(inlist):
+	x1_list = []
+	x2_list = []
+	for line in inlist:
+		line = line.strip()
+		if line == "": continue
+		cols = line.split('\t')
+		if len(cols) < 3:
+			logging.debug('input fields less than 2')
+			continue
+		if cols[0].strip() == "":
+			continue
+		if cols[1].strip() == "":
+			continue
+		x1_list.append(cols[0])
+		x2_list.append(cols[1])
 
-#input: labbel_type = onehot or scalar
-# it will return you : [0,1] or 1, value for a label
-def load_dataset(trainlistconf = None, testlistconf = None, label_type = "onehot"):
-	#load train list:
-	#trainlistconf = "train_set_conf.txt"
-	#trainlistconf = "train_set_conf_1k.txt"
-	if trainlistconf == None:	
-		trainlistconf = "train_set_conf_500.txt"
-	print trainlistconf 
-	x1_list, x2_list, label_list = load_dataset_list(trainlistconf)
-
-	#load test list:
-	#testlistconf = "test_set_conf.txt"
-	#testlistconf = "test_set_conf_300.txt"
-	if testlistconf == None:	
-		testlistconf = "test_set_conf_1000.txt"
-	print testlistconf
-	t_x1_list, t_x2_list, t_label_list = load_dataset_list(testlistconf)
-	
-	#load features
 	x1 = loadFeatures(x1_list)
 	x2 = loadFeatures(x2_list)
-	t_x1 = loadFeatures(t_x1_list)
-	t_x2 = loadFeatures(t_x2_list)
-
-	if label_type == "onehot":
-		label_list = denseToOneHot(np.array(label_list),2)
-		t_label_list = denseToOneHot(np.array(t_label_list),2)
-	elif label_type == "scalar":
-		label_list = np.reshape(label_list,(-1,1))
-		t_label_list = np.reshape(t_label_list,(-1,1))
-
-
-	#print label_list
-	#print t_label_list
-	return x1, x2, label_list, t_x1, t_x2, t_label_list
-
-def test_load_data():
-	logging.info('start loading')
-	load_dataset()
+	return x1, x2	
+	
 
 
 ##let's define a simple graph here
@@ -331,7 +306,9 @@ sess.run(init)
 
 
 def print_usage():
-	print "img_sim.py train_data_conf test_data_conf"
+	print "%s train"%sys.argv[0]
+	print "%s predict"&sys.argv[0]
+	sys.exit(42)
 
 def train_with_epoch():
 	#loader = dataloader.DataLoader("dataset_conf_path.txt")
@@ -340,30 +317,38 @@ def train_with_epoch():
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
+	epoch_num = 200 
+	iter_per_epoch = 10
+
 	test_list = loader.next_epoch_list(500,500)
-	
 	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
-	for i in range(200):
+
+	for i in range(epoch_num):
 		print "epoch %d"%i
 		train_list = loader.next_epoch_list(100,100)
-		print loader.pos_idx
-		print loader.neg_idx
+		print loader.pos_idx, loader.neg_idx
+
 		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
+
 		if i % 1 == 0:
+			print "report on %d th turn"%i
 			print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
 		# train the same epoch for 20 times
 		#for j in range(15):	
-		for j in range(15):
+		for j in range(iter_per_epoch):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i %1 == 0:
-			print "%d th turn"%i
 			print"on test:", (get_accuracy(t_x1, t_x2, t_y))
 			print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
-			
-	# save the trained model	
+	# test do prediction here
+	predict(test_list)
+
+def save_model(model_file_str=None):
 	saver = tf.train.Saver()
 	tt = strftime("%Y-%m-%d_%H_%M_%S", gmtime())
 	filename = "nets/save_net_"+ tt +".ckpt"
+	if model_file_str !=  None:
+		filename = model_file_str
 	save_path = saver.save(sess,filename) 
 	print("trained model saved to:", save_path)
 
@@ -373,8 +358,22 @@ def load_model(netfilestr):
 	print("weights:", sess.run(W_conv1))
 	print("biases:", sess.run(b_conv1))
 
+def predict(pairlist):	
+	for pair in pairlist:
+		pre_x1, pre_x2 = list_to_predict_data([pair])
+		print pair
+		print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
+	
+
 if __name__ == '__main__':
-	train_with_epoch()
-	#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
+	if len(sys.argv) < 2:
+		print_usage()
+	mode = sys.argv[1]
+	if mode == "train":
+		train_with_epoch()
+		save_model()
+	elif mode == "predict":
+		load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
+		#predict()	
 	sys.exit()
 	

@@ -25,6 +25,8 @@ class DataLoader(object):
 		print "neg:"
 		for i in range(min(10, len(self.neg_data))):
 			print self.neg_data[i]
+
+	#load the full list information from a file
 	def load_list(self):
 		if self.infile == None:
 			return 
@@ -64,6 +66,33 @@ class DataLoader(object):
 		random.shuffle(self.pos_data)	
 		random.shuffle(self.neg_data)
 
+	# this function should always be called before the nex_epoch_lis function is called
+	# get test dat from list
+	# then remove those test data from the list
+	def get_test_set(self, posnum, negnum):
+		print "load test set"
+		pos_list = []
+		neg_list = []
+		merged_list = []
+		if (posnum > len(self.pos_data)):
+			print "test set pos num > pos num"
+			posnum = len(self.pos_data)
+		if (negnum > len(self.neg_data)):
+			print "test set neg num > neg num"
+			negnum = len(self.neg_data)
+		pos_list = self.pos_data[:posnum]
+		neg_list = self.neg_data[:negnum] 
+		merged_list.extend(pos_list)
+		merged_list.extend(neg_list)
+		random.shuffle(merged_list)
+		
+		self.pos_data = self.pos_data[posnum:]
+		self.neg_data = self.neg_data[negnum:]
+
+		return merged_list	
+	
+
+	# get a mini batch from the loaded list
 	def next_epoch_list(self, posnum, negnum):
 		print "load next epoch"
 		pos_list = []			

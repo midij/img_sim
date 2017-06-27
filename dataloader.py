@@ -124,8 +124,10 @@ class DataLoader(object):
 		return merged_list
 
 
+'''
 #oncf format:
 # image1 \t image2 \ label =(0/1)
+# @deprecated
 def load_conf(conf_str):
 	train_pos_num = 20
 	train_neg_num = 180
@@ -174,6 +176,8 @@ def load_conf(conf_str):
 		with open(test_conf, "w") as f:
 			for key in test_list:
 				f.write(key+'\n')
+
+'''
 
 '''
 

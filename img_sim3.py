@@ -139,7 +139,7 @@ def list_to_predict_data(inlist):
 		line = line.strip()
 		if line == "": continue
 		cols = line.split('\t')
-		if len(cols) < 3:
+		if len(cols) < 2:
 			logging.debug('input fields less than 2')
 			continue
 		if cols[0].strip() == "":
@@ -317,13 +317,26 @@ def train_with_epoch():
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
-	epoch_num = 2000
-	iter_per_epoch = 15 
+	#epoch_num = 2000
+	#iter_per_epoch = 15 
 
-	#test_list = loader.next_epoch_list(500,500)
+	epoch_num = 30000 
+	iter_per_epoch = 1
+
+	#get an untouched  data test for final test
+	# load from list and remove them 
+	valid_list = loader.get_test_set(1000,1000)
+	with open("untouched_test_list.txt", "w") as of:
+		for line in valid_list:
+			of.writelines(line+"\n")
+
+	#get the validation dataset
+	# load from list and remove them
 	test_list = loader.get_test_set(500,500)
 	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
 
+	# do training.
+	# without using test data loaded before.
 	for i in range(epoch_num):
 		print "epoch %d"%i
 		train_list = loader.next_epoch_list(100,100)
@@ -331,18 +344,18 @@ def train_with_epoch():
 
 		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
 
-		if i % 1 == 0:
+		if i % 50  == 0:
 			print "report on %d th turn"%i
 			print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
 		# train the same epoch for 20 times
 		#for j in range(15):	
 		for j in range(iter_per_epoch):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
-		if i %1 == 0:
+		if i % 50 == 0:
 			print"on test:", (get_accuracy(t_x1, t_x2, t_y))
 			print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
 	# test do prediction here
-	predict(test_list)
+	#predict(valid_list)
 
 def save_model(model_file_str=None):
 	saver = tf.train.Saver()
@@ -354,16 +367,20 @@ def save_model(model_file_str=None):
 	print("trained model saved to:", save_path)
 
 def load_model(netfilestr):
+	print "load model %s"%netfilestr
 	saver = tf.train.Saver()
 	saver.restore(sess, netfilestr)
-	print("weights:", sess.run(W_conv1))
-	print("biases:", sess.run(b_conv1))
+	#print("weights:", sess.run(W_conv1))
+	#print("biases:", sess.run(b_conv1))
 
 def predict(pairlist):	
 	for pair in pairlist:
 		pre_x1, pre_x2 = list_to_predict_data([pair])
-		print pair
-		print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
+		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
+		y_pre = sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1})
+		label = np.argmax(y_pre) 
+		print "predict: " + pair + "\t"+ str(label)
+		print "details:", y_pre
 	
 
 if __name__ == '__main__':
@@ -374,7 +391,17 @@ if __name__ == '__main__':
 		train_with_epoch()
 		save_model()
 	elif mode == "predict":
-		load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
-		#predict()	
+		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
+		load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
+		#pred_filestr = "predict_list.txt"	
+		pred_filestr = "untouched_test_list.txt"	
+		pred_list = []
+		with open(pred_filestr, "r") as f:
+			for line in f:
+				line = line.strip()
+				pred_list.append(line)
+		
+		print "do prediction ..."
+		predict(pred_list)	
 	sys.exit()
 	

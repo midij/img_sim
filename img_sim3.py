@@ -185,15 +185,21 @@ def get_accuracy(in_x1, in_x2, ideal_y):
 	return result
 
 
+#todo: to add the add accuracy function on siamese loss
+def get_accuracy_on_siamese_loss(in_x1, in_x2, ideal_y):
+	global eucd
+	dist = sess.run(eucd, feed_dict = {x1: in_x1, x2: in_x2})
+	return dist 
+
 
 
 #define place holders for inputs
 with tf.name_scope("inputs"):
 	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input")
 	x2 = tf.placeholder(tf.float32,  [None, IMG_SIZE * IMG_SIZE * 3], name = "x2_input")
-	#y = tf.placeholder(tf.float32, [None, 2])
-	#y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
-	y = tf.placeholder(tf.float32,[None,2], name = "y_input")	
+
+	y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	#y = tf.placeholder(tf.float32,[None,2], name = "y_input")	
 	keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 
 
@@ -272,29 +278,36 @@ with tf.name_scope("softmaxlayer"):
 
 
 
+'''
 #---------------- set up the train_step
+#---------------- loss functio is entropy 
+# this loss is saved as the branch_for_entropy_loss branch
+# can be deprecated
 #cross_entropy = -tf.reduce_sum(y_conv * tf.log(y), reduction_indices=[1])
 #cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(y_conv+1e-50), reduction_indices=[1]))
 cross_entropy = loss_ops.softmax_cross_entropy(logits, y)
 cross_entropy = tf.Print(cross_entropy, [cross_entropy], "cost:") #print to the console 
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-
-#---------------set up the train step 2, loss type 1: L2 distance
 '''
-l2diff = tf.sqrt(tf.reduce_sum(tf.square(tf.sub(h_pool2_flat,h2_pool2_flat)), reduction_indices = 1))
-l2diff = tf.Print(l2diff, [l2diff], "l2diff:")
-margin = tf.to_float(1.)
-labels = tf.to_float(y)
-match_loss = tf.square(l2diff, 'match_term')	
-mismatch_loss = tf.maximum(0., tf.sub(margin, tf.square(l2diff)),'mismatch_term')
-loss = tf.add(tf.mul(labels, match_loss), tf.mul((1-labels),mismatch_loss), 'loss_add')
-loss_mean = tf.reduce_mean(loss)
 
+#-------------- set up the train_step
+#-------------- using the siamese net loss
+# ------------- define: Euclidean distance: eucd = sqrt(||cnn_embed(x1)-cnn_embed(x2)||^2)
+#-------------- loss = label * eucd(x1,x2)^2 + (1 - label) * max (0, (c-eucd(x1,x2)))^2
 
-train_step = tf.train.AdamOptimizer(1e-4).minimize(loss_mean)
-'''
-#---------------- set up the train_step, loss type 2: cross entropy of two vectores.
-
+margin = 5.0 # define the C. could be 5.0 or 1.0
+# y should be in the format of 0 or 1, not onehot.
+y_t = y
+y_f = tf.sub(1.0, y_t, name = "1-y_t")
+eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+eucd2 = tf.reduce_sum(eucd2, 1)
+eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
+C = tf.constant(margin, name = "C")
+pos = tf.mul(y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
+neg = tf.mul(y_f, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
+losses = tf.add(pos, neg, name= "losses")
+loss = tf.reduce_mean(losses, name = "loss")
+train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 
 #init session
@@ -320,7 +333,7 @@ def train_with_epoch():
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 30000 
+	epoch_num = 20000 
 	iter_per_epoch = 1
 
 	#get an untouched  data test for final test
@@ -333,8 +346,8 @@ def train_with_epoch():
 	#get the validation dataset
 	# load from list and remove them
 	test_list = loader.get_test_set(500,500)
-	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
-
+	#t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
+	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "scalar")
 	# do training.
 	# without using test data loaded before.
 	for i in range(epoch_num):
@@ -342,20 +355,28 @@ def train_with_epoch():
 		train_list = loader.next_epoch_list(100,100)
 		print loader.pos_idx, loader.neg_idx
 
-		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
-
+		#in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
+		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "scalar")
+		loss_before =-1.0
+		loss_after = -1.0
 		if i % 50  == 0:
-			print "report on %d th turn"%i
-			print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
+			#print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
+			#print"on trained before:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
+			loss_before = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
 		# train the same epoch for 20 times
 		#for j in range(15):	
 		for j in range(iter_per_epoch):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i % 50 == 0:
-			print"on test:", (get_accuracy(t_x1, t_x2, t_y))
-			print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
+			#print"on test:", (get_accuracy(t_x1, t_x2, t_y))
+			#print"on test:", (get_accuracy_on_siamese_loss(t_x1, t_x2, t_y))
+			#print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
+			#print"on trained after:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
+			loss_after = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
+			print "report on %d th turn, %f -> %f"%(i, loss_before, loss_after)
 	# test do prediction here
 	#predict(valid_list)
+	predict_siamese_loss(test_list)
 
 def save_model(model_file_str=None):
 	saver = tf.train.Saver()
@@ -382,6 +403,15 @@ def predict(pairlist):
 		print "predict: " + pair + "\t"+ str(label)
 		print "details:", y_pre
 	
+def predict_siamese_loss(pairlist):
+	for pair in pairlist:
+		pre_x1, pre_x2 = list_to_predict_data([pair])
+		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
+		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2})
+		print "predict: " + pair + "\t"+ str(dist)
+
+
+
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:

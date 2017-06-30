@@ -307,7 +307,7 @@ sess.run(init)
 
 def print_usage():
 	print "%s train"%sys.argv[0]
-	print "%s predict"&sys.argv[0]
+	print "%s predict"%sys.argv[0]
 	sys.exit(42)
 
 def train_with_epoch():

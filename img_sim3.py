@@ -299,7 +299,8 @@ margin = 5.0 # define the C. could be 5.0 or 1.0
 # y should be in the format of 0 or 1, not onehot.
 y_t = y
 y_f = tf.sub(1.0, y_t, name = "1-y_t")
-eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+#eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
 eucd2 = tf.reduce_sum(eucd2, 1)
 eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
 C = tf.constant(margin, name = "C")
@@ -333,7 +334,7 @@ def train_with_epoch():
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 20000 
+	epoch_num = 1
 	iter_per_epoch = 1
 
 	#get an untouched  data test for final test
@@ -345,7 +346,7 @@ def train_with_epoch():
 
 	#get the validation dataset
 	# load from list and remove them
-	test_list = loader.get_test_set(500,500)
+	test_list = loader.get_test_set(300,300)
 	#t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
 	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "scalar")
 	# do training.
@@ -359,6 +360,7 @@ def train_with_epoch():
 		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "scalar")
 		loss_before =-1.0
 		loss_after = -1.0
+		loss_test = -1.0
 		if i % 50  == 0:
 			#print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
 			#print"on trained before:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
@@ -369,11 +371,15 @@ def train_with_epoch():
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i % 50 == 0:
 			#print"on test:", (get_accuracy(t_x1, t_x2, t_y))
-			#print"on test:", (get_accuracy_on_siamese_loss(t_x1, t_x2, t_y))
+			loss_test = sess.run(loss, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1})
 			#print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
 			#print"on trained after:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
 			loss_after = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
-			print "report on %d th turn, %f -> %f"%(i, loss_before, loss_after)
+			print "report on %d th turn, on train: %f -> %f; on test: %f"%(i, loss_before, loss_after, loss_test)
+		if i% 5000 == 0:
+			save_model("tmp.ckpt")
+			print "trained model on %d th minibatch saved to %s:"%(i,"tmp.ckpt")
+			
 	# test do prediction here
 	#predict(valid_list)
 	predict_siamese_loss(test_list)
@@ -407,7 +413,7 @@ def predict_siamese_loss(pairlist):
 	for pair in pairlist:
 		pre_x1, pre_x2 = list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
-		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2})
+		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2, keep_prob:1})
 		print "predict: " + pair + "\t"+ str(dist)
 
 

@@ -299,8 +299,8 @@ margin = 5.0 # define the C. could be 5.0 or 1.0
 # y should be in the format of 0 or 1, not onehot.
 y_t = y
 y_f = tf.sub(1.0, y_t, name = "1-y_t")
-#eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
-eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
+eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+#eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
 eucd2 = tf.reduce_sum(eucd2, 1)
 eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
 C = tf.constant(margin, name = "C")
@@ -334,7 +334,7 @@ def train_with_epoch():
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 1
+	epoch_num = 2 
 	iter_per_epoch = 1
 
 	#get an untouched  data test for final test

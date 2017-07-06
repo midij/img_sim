@@ -88,13 +88,61 @@ class DataLoader(object):
 		
 		self.pos_data = self.pos_data[posnum:]
 		self.neg_data = self.neg_data[negnum:]
+		
+		self.remove_test_points_from_list(merged_list)
 
 		return merged_list	
 	
 
+	# test list: a line inthe form of: point1 \t  point2 \t label
+	# remove all the lines in the pos/neg list that contains point1 or point2 
+	def remove_test_points_from_list(self, test_list):
+		print "start cleaning list" 
+		test_point_dic = {}
+		for line in test_list:
+			line = line.strip()
+			cols = line.split('\t')
+			try:
+				p1 = cols[0]
+				p2 = cols[1]
+				test_point_dic[p1] = 1
+				test_point_dic[p2] = 1	
+			except:
+				print "skip test pair: %s"%line	
+			
+		pos_list = []
+		neg_list = []
+		#deal with pos data
+		for line in self.pos_data:
+			line = line.strip()
+			cols = line.split('\t')
+			p1 = cols[0]
+			p2 = cols[0]
+			if p1 in test_point_dic:
+				continue
+			if p2 in test_point_dic: 
+				continue
+			pos_list.append(line)
+
+		#del with neg data
+		for line in self.neg_data:	
+			line = line.strip()
+			cols = line.split('\t')
+			p1 = cols[0]
+			p2 = cols[0]
+			if p1 in test_point_dic:
+				continue
+			if p2 in test_point_dic: 
+				continue
+			neg_list.append(line)
+
+		self.pos_data = pos_list
+		self.neg_data = neg_list
+		print "after test data filter, [pos_data_len, neg_data_len] = [%d,%d]"%(len(self.pos_data), len(self.neg_data))
+
 	# get a mini batch from the loaded list
 	def next_epoch_list(self, posnum, negnum):
-		print "load next epoch from: ", len(self.pos_data), len(self.neg_data)
+		print "load next epoch, [pos_data_len, neg_data_len]= [%d, %d]"%(len(self.pos_data), len(self.neg_data))
 		pos_list = []			
 		neg_list = []
 		merged_list = []

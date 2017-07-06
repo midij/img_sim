@@ -320,7 +320,7 @@ def train_with_epoch():
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 30000 
+	epoch_num = 30000
 	iter_per_epoch = 1
 
 	#get an untouched  data test for final test

@@ -392,9 +392,10 @@ if __name__ == '__main__':
 		save_model()
 	elif mode == "predict":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
-		load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
-		#pred_filestr = "predict_list.txt"	
-		pred_filestr = "untouched_test_list.txt"	
+		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
+		load_model("nets/save_net_2017-07-07_20_48_33.ckpt")
+		pred_filestr = "predict_list.txt"	
+		#pred_filestr = "untouched_test_list.txt"	
 		pred_list = []
 		with open(pred_filestr, "r") as f:
 			for line in f:

@@ -16,6 +16,7 @@ from tensorflow.contrib.losses.python.losses import loss_ops
 import logging
 import dataloader
 from time import gmtime, strftime
+import time
 
 IMG_SIZE = 128
 
@@ -91,7 +92,7 @@ def load_dataset_list(datasetconf):
 	return x1_list, x2_list, label_list
 	
 
-#input: labbel_type = onehot or scalar
+#input: labbel_type = onehot or scalar or scalar_revert
 # it will return you : [0,1] or 1, value for a label
 def list_to_data(inlist, label_type = "onehot"):
 	x1_list = []
@@ -129,7 +130,10 @@ def list_to_data(inlist, label_type = "onehot"):
 		label_list = denseToOneHot(np.array(label_list),2)
 	elif label_type == "scalar":
 		label_list = np.reshape(label_list,(-1,1))
-	
+	elif label_type == "scalar_revert":
+		#label_list[:] = [1-x for x in label_list]
+		#label_list = np.reshape(label_list,(-1,1))
+		pass
 	return x1, x2, label_list
 
 def list_to_predict_data(inlist):
@@ -184,13 +188,10 @@ def get_accuracy(in_x1, in_x2, ideal_y):
 	result = sess.run(accuracy, feed_dict={x1: in_x1, x2:in_x2, y:ideal_y, keep_prob:1})
 	return result
 
-
-#todo: to add the add accuracy function on siamese loss
-def get_accuracy_on_siamese_loss(in_x1, in_x2, ideal_y):
-	global eucd
-	dist = sess.run(eucd, feed_dict = {x1: in_x1, x2: in_x2})
-	return dist 
-
+def get_siamese_accuracy(eucd, labels):
+	eucd_label = [0 if x <0.5 else 1 for x in eucd]
+	correct = [1 if x == y else 0 for x, y in zip(eucd_label,labels)]
+	return np.mean(correct)
 
 
 #define place holders for inputs
@@ -198,7 +199,8 @@ with tf.name_scope("inputs"):
 	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input")
 	x2 = tf.placeholder(tf.float32,  [None, IMG_SIZE * IMG_SIZE * 3], name = "x2_input")
 
-	y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	#y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	y = tf.placeholder(tf.float32,[None], name = "y_input")	
 	#y = tf.placeholder(tf.float32,[None,2], name = "y_input")	
 	keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 
@@ -294,19 +296,29 @@ train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 #-------------- using the siamese net loss
 # ------------- define: Euclidean distance: eucd = sqrt(||cnn_embed(x1)-cnn_embed(x2)||^2)
 #-------------- loss = label * eucd(x1,x2)^2 + (1 - label) * max (0, (c-eucd(x1,x2)))^2
-
-margin = 5.0 # define the C. could be 5.0 or 1.0
+#-------------- input label = 0, if x1 and x2 is same, label = 1 if x1 and x2 is not same
+margin = 10.0 # define the C. could be 5.0 or 1.0
 # y should be in the format of 0 or 1, not onehot.
-y_t = y
-y_f = tf.sub(1.0, y_t, name = "1-y_t")
+#y_t = y
+#y_f = tf.sub(1.0, y_t, name = "1-y_t")
+#y_f = tf.Print(y_f, [y_f], "print_1-y_t")
+
 eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
 #eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
 eucd2 = tf.reduce_sum(eucd2, 1)
+#eucd2 = tf.Print(eucd2,[eucd2], "print_eucd2")
 eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
+
 C = tf.constant(margin, name = "C")
-pos = tf.mul(y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
-neg = tf.mul(y_f, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
-losses = tf.add(pos, neg, name= "losses")
+#pos = tf.mul(1-y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
+#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
+
+losses = y * eucd2 + (1-y) * tf.square(tf.maximum(0., margin - eucd))
+# follow the paper, the function is not symmetrical
+#pos = tf.mul(y_f, eucd2, name = "Nyi_x_eucd2") # the first half of the loss
+#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "yi_x_C-eucd_xx_2") # the second half of the loss
+#losses = tf.add(pos, neg, name= "losses")
+#losses = (1-y) * eucd2 + y * tf.square(tf.maximum(0., margin - eucd))
 loss = tf.reduce_mean(losses, name = "loss")
 train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
@@ -324,20 +336,20 @@ def print_usage():
 	print "%s predict"%sys.argv[0]
 	sys.exit(42)
 
-def train_with_epoch():
+
+def train():
 	#loader = dataloader.DataLoader("dataset_conf_path.txt")
 	#loader = dataloader.DataLoader("face_dataset_conf_path.txt")
-
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 20000
+	epoch_num = 30000
+	#epoch_num = 1
 	iter_per_epoch = 1
-
-	#get an untouched  data test for final test
+	# get an untouched  data test for final test
 	# load from list and remove them 
 	valid_list = loader.get_test_set(1000,1000)
 	with open("untouched_test_list.txt", "w") as of:
@@ -348,41 +360,60 @@ def train_with_epoch():
 	# load from list and remove them
 	test_list = loader.get_test_set(300,300)
 	#t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
-	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "scalar")
+	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "scalar_revert")
 	# do training.
 	# without using test data loaded before.
 	for i in range(epoch_num):
 		print "epoch %d"%i
 		train_list = loader.next_epoch_list(100,100)
 		print loader.pos_idx, loader.neg_idx
-
 		#in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
-		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "scalar")
+		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "scalar_revert")
+
+			
 		loss_before =-1.0
 		loss_after = -1.0
 		loss_test = -1.0
+		starttime = None
+		endtime = None
 		if i % 50  == 0:
 			#print"on trained before:", (get_accuracy(in_x1, in_x2, in_y))
-			#print"on trained before:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
+			starttime = time.time()
 			loss_before = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
-		# train the same epoch for 20 times
-		#for j in range(15):	
+
 		for j in range(iter_per_epoch):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i % 50 == 0:
+			endtimet= time.time()
 			#print"on test:", (get_accuracy(t_x1, t_x2, t_y))
-			loss_test = sess.run(loss, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1})
+			loss_test, dist, test_y = sess.run([loss,eucd,y], feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1})
+			accu_test = get_siamese_accuracy(dist, t_y)			
+			#print dist
 			#print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
-			#print"on trained after:", (get_accuracy_on_siamese_loss(in_x1, in_x2, in_y))
 			loss_after = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
-			print "report on %d th turn, on train: %f -> %f; on test: %f"%(i, loss_before, loss_after, loss_test)
-		if i% 5000 == 0:
+			print "report on %d th turn, trained %d iterations, on train: %f -> %f; on test: loss= %f; accu = %f"%(i, iter_per_epoch, loss_before, loss_after, loss_test, accu_test)
+
+			print "============ start debug session =============================="
+			print "tensor shape y:", y.get_shape().as_list()
+			print "tensor shape h_pool2_flat", h_pool2_flat.get_shape().as_list()
+			print "tensor shape h2_pool2_flat", h2_pool2_flat.get_shape().as_list()
+			print "tensor shape eucd2:", eucd2.get_shape().as_list()
+			print "tensor shape eucd:",  eucd.get_shape().as_list()
+			print " eucd dist:", np.shape(dist)
+			print dist
+			print "test_y:", np.shape(test_y)
+			print test_y
+			print "============ end debug session =============================="
+
+
+		# save tmp model
+		if (i% 5000 == 0) and (i > 1):
 			save_model("tmp.ckpt")
 			print "trained model on %d th minibatch saved to %s:"%(i,"tmp.ckpt")
 			
 	# test do prediction here
 	#predict(valid_list)
-	predict_siamese_loss(test_list)
+	#predict_siamese_sim(test_list)
 
 def save_model(model_file_str=None):
 	saver = tf.train.Saver()
@@ -409,7 +440,7 @@ def predict(pairlist):
 		print "predict: " + pair + "\t"+ str(label)
 		print "details:", y_pre
 	
-def predict_siamese_loss(pairlist):
+def predict_siamese_sim(pairlist):
 	for pair in pairlist:
 		pre_x1, pre_x2 = list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
@@ -417,18 +448,17 @@ def predict_siamese_loss(pairlist):
 		print "predict: " + pair + "\t"+ str(dist)
 
 
-
-
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		print_usage()
 	mode = sys.argv[1]
 	if mode == "train":
-		train_with_epoch()
+		train()
 		save_model()
 	elif mode == "predict":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
-		load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
+		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
+		load_model("nets/save_net_2017-07-12_11_21_10.ckpt")
 		#pred_filestr = "predict_list.txt"	
 		pred_filestr = "untouched_test_list.txt"	
 		pred_list = []
@@ -438,6 +468,9 @@ if __name__ == '__main__':
 				pred_list.append(line)
 		
 		print "do prediction ..."
-		predict(pred_list)	
+		#predict(pred_list)	
+		predict_siamese_sim(pred_list)
+	else:
+		print_usage()
 	sys.exit()
 	

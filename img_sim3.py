@@ -307,7 +307,7 @@ sess.run(init)
 
 def print_usage():
 	print "%s train"%sys.argv[0]
-	print "%s predict"%sys.argv[0]
+	print "%s predict [modelname]"%sys.argv[0]
 	sys.exit(42)
 
 def train_with_epoch():
@@ -393,8 +393,12 @@ if __name__ == '__main__':
 	elif mode == "predict":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
-		load_model("nets/save_net_2017-07-07_20_48_33.ckpt")
+		modelname ="nets/save_net_2017-07-07_20_48_33.ckpt" 
 		pred_filestr = "predict_list.txt"	
+		if len(sys.argv) >= 3:
+			modelname = sys.argv[2]
+			print modelname
+		load_model(modelname)
 		#pred_filestr = "untouched_test_list.txt"	
 		pred_list = []
 		with open(pred_filestr, "r") as f:

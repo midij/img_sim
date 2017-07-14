@@ -302,8 +302,11 @@ margin = 10.0 # define the C. could be 5.0 or 1.0
 #y_t = y
 #y_f = tf.sub(1.0, y_t, name = "1-y_t")
 #y_f = tf.Print(y_f, [y_f], "print_1-y_t")
-
-eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+eucd2 = 0.0
+if int((tf.__version__).split('.')[1]) <12 and int((tf.__version__).split('.')[0]) <1: #tensorflow version <0.12
+	eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+else:
+	eucd2 = tf.pow(tf.subtract(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
 #eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
 eucd2 = tf.reduce_sum(eucd2, 1)
 #eucd2 = tf.Print(eucd2,[eucd2], "print_eucd2")
@@ -325,7 +328,10 @@ train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 #init session
 sess = tf.Session()
-writer=tf.train.SummaryWriter('logs/', sess.graph)
+if int((tf.__version__).split('.')[1]) <12 and int((tf.__version__).split('.')[0]) <1: #tensorflow version <0.12
+	writer=tf.train.SummaryWriter('logs/', sess.graph)
+else: # tensorflow version >=0.12
+	writer=tf.summary.FileWriter('logs/', sess.graph)
 
 init = tf.global_variables_initializer()
 sess.run(init)
@@ -346,8 +352,8 @@ def train():
 	#epoch_num = 2000
 	#iter_per_epoch = 15 
 
-	epoch_num = 30000
-	#epoch_num = 1
+	#epoch_num = 30000
+	epoch_num = 1
 	iter_per_epoch = 1
 	# get an untouched  data test for final test
 	# load from list and remove them 

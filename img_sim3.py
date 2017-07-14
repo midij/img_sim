@@ -297,7 +297,7 @@ train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 # ------------- define: Euclidean distance: eucd = sqrt(||cnn_embed(x1)-cnn_embed(x2)||^2)
 #-------------- loss = label * eucd(x1,x2)^2 + (1 - label) * max (0, (c-eucd(x1,x2)))^2
 #-------------- input label = 0, if x1 and x2 is same, label = 1 if x1 and x2 is not same
-margin = 10.0 # define the C. could be 5.0 or 1.0
+margin = 1.0 # define the C. could be 5.0 or 1.0
 # y should be in the format of 0 or 1, not onehot.
 #y_t = y
 #y_f = tf.sub(1.0, y_t, name = "1-y_t")
@@ -333,7 +333,7 @@ sess.run(init)
 
 def print_usage():
 	print "%s train"%sys.argv[0]
-	print "%s predict"%sys.argv[0]
+	print "%s predict [modelname]"%sys.argv[0]
 	sys.exit(42)
 
 
@@ -458,9 +458,14 @@ if __name__ == '__main__':
 	elif mode == "predict":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
-		load_model("nets/save_net_2017-07-12_11_21_10.ckpt")
 		#pred_filestr = "predict_list.txt"	
+		modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
 		pred_filestr = "untouched_test_list.txt"	
+                if len(sys.argv) >= 3:
+                        modelname = sys.argv[2]
+                        print modelname
+
+		load_model(modelname)
 		pred_list = []
 		with open(pred_filestr, "r") as f:
 			for line in f:

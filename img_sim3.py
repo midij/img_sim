@@ -232,7 +232,7 @@ with tf.name_scope("rightlayers"):
 
 	#define the first conv layer
 	#W2_conv1 = tf.get_variable("W2_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
-	W2_conv1 = weight_variable([5,5,3,32])
+	W2_conv1 = weight_variable([3,3,3,32])
 	b2_conv1 = tf.get_variable("b2_conv1", [32]) 
 	h2_conv1 = tf.nn.relu(conv2d(x2_image, W2_conv1) + b2_conv1) #128 -> 64
 	h2_pool1 = max_pool_2x2(h2_conv1) #64 ->32

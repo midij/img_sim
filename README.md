@@ -2,7 +2,9 @@
 test my img similarity task 
 
 #using Saimese net:
-1. paper: http://yann.lecun.com/exdb/publis/pdf/chopra-05.pdf
+1. paper: 
+http://yann.lecun.com/exdb/publis/pdf/chopra-05.pdf
+https://arxiv.org/pdf/1605.05863.pdf
 
 2. blog: 
 https://zhuanlan.zhihu.com/p/23956891

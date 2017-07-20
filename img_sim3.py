@@ -218,7 +218,6 @@ with tf.name_scope("leftlayers"):
 	x1_image = tf.reshape(x1, [-1, IMG_SIZE, IMG_SIZE, 3])
 	#W_conv1 = tf.get_variable("W_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
 	W_conv1 = weight_get_variable("W_conv1", [3,3,3,32])
-	#b_conv1 = tf.get_variable("b_conv1", [32]) 
 	b_conv1 = weight_get_variable("b_conv1",[32]) 
 	h_conv1 = tf.nn.relu(conv2d(x1_image, W_conv1) + b_conv1) #128 -> 64
 	h_pool1 = max_pool_2x2(h_conv1) #64 ->32
@@ -226,7 +225,7 @@ with tf.name_scope("leftlayers"):
 
 	#W_conv2 = tf.get_variable("W_conv2", [3,3,32,64]) #patch = 3*3, input chanel =3, output chanel = 32
 	W_conv2 = weight_get_variable("W_conv2", [3,3,32,64])
-#b_conv2 = tf.get_variable("b_conv2", [64]) 
+	#b_conv2 = tf.get_variable("b_conv2", [64]) 
 	b_conv2 = weight_get_variable("b_conv2",[64])
 	h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2) #32->16
 	h_pool2 = max_pool_2x2(h_conv2)	#16->8
@@ -234,12 +233,10 @@ with tf.name_scope("leftlayers"):
 	h_pool2_flat = tf.reshape(h_pool2, [-1, 8*8*64])
 	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 	#fc1 layer:
-	'''
 	W_fc1 =tf.get_variable("W_fc1", [8*8*64, 512])
 	b_fc1 = tf.get_variable("b_fc1", [512])
 	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-	'''
 
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
@@ -261,12 +258,10 @@ with tf.name_scope("rightlayers"):
 	#h2_pool2_flat = tf.Print(h2_pool2_flat,[h2_pool2_flat], "h2_pool2_flat:")
 
 	#fc1  layer
-	'''
 	W2_fc1 = tf.get_variable("W_fc2", [8*8*64, 512])
 	b2_fc1 = tf.get_variable("b_fc2", [512])
 	h2_fc1 = tf.nn.relu(tf.matmul(h2_pool2_flat, W2_fc1) + b2_fc1)
 	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
-	'''
 
 '''
 #---------------set up the combinationlayer
@@ -302,39 +297,44 @@ cross_entropy = tf.Print(cross_entropy, [cross_entropy], "cost:") #print to the 
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 '''
 
+
 #-------------- set up the train_step
 #-------------- using the siamese net loss
 # ------------- define: Euclidean distance: eucd = sqrt(||cnn_embed(x1)-cnn_embed(x2)||^2)
 #-------------- loss = label * eucd(x1,x2)^2 + (1 - label) * max (0, (c-eucd(x1,x2)))^2
 #-------------- input label = 0, if x1 and x2 is same, label = 1 if x1 and x2 is not same
-margin = 5.0 # define the C. could be 5.0 or 1.0
-# y should be in the format of 0 or 1, not onehot.
-#y_t = y
-#y_f = tf.sub(1.0, y_t, name = "1-y_t")
-#y_f = tf.Print(y_f, [y_f], "print_1-y_t")
-eucd2 = None
-if int((tf.__version__).split('.')[1]) <12 and int((tf.__version__).split('.')[0]) <1: #tensorflow version <0.12
-	eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
-else:
-	eucd2 = tf.pow(tf.subtract(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
-#eucd2 = tf.pow(tf.sub(h_fc1_drop, h2_fc1_drop),2) #try dropout next time
-eucd2 = tf.reduce_sum(eucd2, 1)
-#eucd2 = tf.Print(eucd2,[eucd2], "print_eucd2")
-eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
 
-C = tf.constant(margin, name = "C")
-#pos = tf.mul(1-y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
-#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
+with tf.name_scope("loss"):
+	margin = 5.0 # define the C. could be 5.0 or 1.0
+	# y should be in the format of 0 or 1, not onehot.
+	#y_t = y
+	#y_f = tf.sub(1.0, y_t, name = "1-y_t")
+	#y_f = tf.Print(y_f, [y_f], "print_1-y_t")
+	eucd2 = None
+	if int((tf.__version__).split('.')[1]) <12 and int((tf.__version__).split('.')[0]) <1: #tensorflow version <0.12
+		#eucd2 = tf.pow(tf.sub(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+		eucd2 = tf.pow(tf.sub(h_fc1, h2_fc1),2) #should try dropout next time
+	else:
+		#eucd2 = tf.pow(tf.subtract(h_pool2_flat, h2_pool2_flat),2) #should try dropout next time
+		eucd2 = tf.pow(tf.subtract(h_fc1, h2_fc1),2) #should try dropout next time
 
-#losses = y * eucd2 + (1-y) * tf.square(tf.maximum(0., margin - eucd))
-losses = y * eucd2 + (1-y) * tf.maximum(0., margin - eucd2)
-# follow the paper, the function is not symmetrical
-#pos = tf.mul(y_f, eucd2, name = "Nyi_x_eucd2") # the first half of the loss
-#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "yi_x_C-eucd_xx_2") # the second half of the loss
-#losses = tf.add(pos, neg, name= "losses")
-#losses = (1-y) * eucd2 + y * tf.square(tf.maximum(0., margin - eucd))
-loss = tf.reduce_mean(losses, name = "loss")
-train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+	eucd2 = tf.reduce_sum(eucd2, 1)
+	#eucd2 = tf.Print(eucd2,[eucd2], "print_eucd2")
+	eucd = tf.sqrt(eucd2 + 1e-6, name = "eucd")
+	
+	C = tf.constant(margin, name = "C")
+	#pos = tf.mul(1-y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
+	#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
+	
+	#losses = y * eucd2 + (1-y) * tf.square(tf.maximum(0., margin - eucd))
+	losses = y * eucd2 + (1-y) * tf.maximum(0., margin - eucd2)
+	# follow the paper, the function is not symmetrical
+	#pos = tf.mul(y_f, eucd2, name = "Nyi_x_eucd2") # the first half of the loss
+	#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "yi_x_C-eucd_xx_2") # the second half of the loss
+	#losses = tf.add(pos, neg, name= "losses")
+	#losses = (1-y) * eucd2 + y * tf.square(tf.maximum(0., margin - eucd))
+	loss = tf.reduce_mean(losses, name = "loss")
+train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
 
 #init session
@@ -360,11 +360,9 @@ def train():
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
-	#epoch_num = 2000
-	#iter_per_epoch = 15 
 
-	#epoch_num = 30000
-	epoch_num = 1
+	epoch_num = 30000
+	#epoch_num = 1
 	iter_per_epoch = 1
 	# get an untouched  data test for final test
 	# load from list and remove them 
@@ -413,8 +411,10 @@ def train():
 			print "============ start debug session =============================="
 			#print "tensor shape h_pool2_flat", h_pool2_flat.get_shape().as_list()
 			print "tensor shape h_pool2_flat", sess.run(h_pool2_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
+			print "tensor shape h_fc1", sess.run(h_fc1, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			#print "tensor shape h2_pool2_flat", h2_pool2_flat.get_shape().as_list()
 			print "tensor shape h2_pool2_flat", sess.run(h2_pool2_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
+			print "tensor shape h2_fc1", sess.run(h2_fc1, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			#print "tensor shape eucd2:", eucd2.get_shape().as_list()
 			#print "tensor shape eucd:",  eucd.get_shape().as_list()
 			print " eucd dist:", np.shape(dist)

@@ -166,7 +166,7 @@ def weight_variable(shape):
 	return tf.Variable(initial)
 
 def weight_get_variable(name, shape):
-	initer = tf.truncated_normal_initializer(stddev=0.1)
+	initer = tf.truncated_normal_initializer(stddev=0.01)
 	return tf.get_variable(name, dtype = tf.float32, shape=shape, initializer = initer)
 	#return tf.get_variable(initial)
 
@@ -174,6 +174,10 @@ def weight_get_variable(name, shape):
 def bias_variable(shape):
 	inital = tf.constant(0.1, shape= shape)
 	return tf.Variable(initial)
+
+def bias_get_variable(name, shape):
+	return tf.get_variable(name, dtype=tf.float32, initializer=tf.constant(0.01, shape=shape, dtype=tf.float32))
+	
 
 def conv2d(x, W):
 	# for strdies[0] = strides[3] = 1, strides width = strides height = 2
@@ -200,6 +204,21 @@ def get_siamese_accuracy(eucd, labels):
 	return np.mean(correct)
 
 
+
+def conv_relu_maxpool(input, kernel_shape, bias_shape, name):
+	W = weight_get_variable(name + "_W",kernel_shape)
+	b = bias_get_variable(name + "_b", bias_shape) 
+	h = tf.nn.relu(conv2d(input, W) + b) 
+	#pool = max_pool_2x2(h) 
+	pool = h # remove max pooling
+	return pool
+
+def fc_layer(input, weight_shape, bias_shape, name):
+	W = weight_get_variable(name + "_W", weight_shape)
+	b = bias_get_variable(name + "_b", bias_shape)
+	fc = tf.matmul(input, W) + b
+	return fc	
+
 #define place holders for inputs
 with tf.name_scope("inputs"):
 	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input")
@@ -216,52 +235,55 @@ with tf.name_scope("inputs"):
 
 with tf.name_scope("leftlayers"):
 	x1_image = tf.reshape(x1, [-1, IMG_SIZE, IMG_SIZE, 3])
-	#W_conv1 = tf.get_variable("W_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
-	W_conv1 = weight_get_variable("W_conv1", [3,3,3,32])
-	b_conv1 = weight_get_variable("b_conv1",[32]) 
-	h_conv1 = tf.nn.relu(conv2d(x1_image, W_conv1) + b_conv1) #128 -> 64
-	h_pool1 = max_pool_2x2(h_conv1) #64 ->32
-
-
-	#W_conv2 = tf.get_variable("W_conv2", [3,3,32,64]) #patch = 3*3, input chanel =3, output chanel = 32
-	W_conv2 = weight_get_variable("W_conv2", [3,3,32,64])
-	#b_conv2 = tf.get_variable("b_conv2", [64]) 
-	b_conv2 = weight_get_variable("b_conv2",[64])
-	h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2) #32->16
-	h_pool2 = max_pool_2x2(h_conv2)	#16->8
-
-	h_pool2_flat = tf.reshape(h_pool2, [-1, 8*8*64])
+	#kernel = 3*3, input chanel =3, output chanel = 32
+	#stride = 2,2
+	h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11") #128 -> 64
+	h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") # 64-> 32
+	h_pool2_flat = tf.reshape(h_pool2, [-1, 32*32*64])
 	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+
 	#fc1 layer:
-	W_fc1 =tf.get_variable("W_fc1", [8*8*64, 512])
-	b_fc1 = tf.get_variable("b_fc1", [512])
-	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+	h_fc1 = fc_layer(h_pool2_flat, [32*32*64, 512],[512], "fc11")
+	h_fc1 = tf.nn.relu(h_fc1)
 	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
 	x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
 
+	h2_pool1 = conv_relu_maxpool(x2_image, [3,3,3,32],[32], "conv21") #128 -> 64
+	h2_pool2 = conv_relu_maxpool(h2_pool1, [3,3,32,64],[64], "conv22") # 64-> 32
+
+	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 32*32*64])
+	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+	#fc1 layer:
+	h2_fc1 = fc_layer(h2_pool2_flat, [32*32*64, 512],[512], "fc21")
+	h2_fc1 = tf.nn.relu(h2_fc1)
+	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
+
+	'''
 	#define the first conv layer
 	#W2_conv1 = tf.get_variable("W2_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
 	W2_conv1 = weight_get_variable("W2_conv1", [3,3,3,32])
 	b2_conv1 = weight_get_variable("b2_conv1", [32]) 
 	h2_conv1 = tf.nn.relu(conv2d(x2_image, W2_conv1) + b2_conv1) #128 -> 64
-	h2_pool1 = max_pool_2x2(h2_conv1) #64 ->32
-
+	#h2_pool1 = max_pool_2x2(h2_conv1) #64 ->32
+	h2_pool1 = h2_conv1 # remove max pooling
 
 	W2_conv2 = weight_get_variable("W2_conv2", [3,3,32,64]) #patch = 3*3, input chanel =3, output chanel = 32
 	b2_conv2 = weight_get_variable("b2_conv2", [64]) 
 	h2_conv2 = tf.nn.relu(conv2d(h2_pool1, W2_conv2) + b2_conv2) #32->16
-	h2_pool2 = max_pool_2x2(h2_conv2)	#16->8
-	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 8*8*64])
+	#h2_pool2 = max_pool_2x2(h2_conv2)	#16->8
+	h2_pool2 = h2_conv2 # remove max pooling
+	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 32*32*64])
 	#h2_pool2_flat = tf.Print(h2_pool2_flat,[h2_pool2_flat], "h2_pool2_flat:")
 
 	#fc1  layer
-	W2_fc1 = tf.get_variable("W_fc2", [8*8*64, 512])
+	W2_fc1 = tf.get_variable("W_fc2", [32*32*64, 512])
 	b2_fc1 = tf.get_variable("b_fc2", [512])
 	h2_fc1 = tf.nn.relu(tf.matmul(h2_pool2_flat, W2_fc1) + b2_fc1)
 	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
+	'''
 
 '''
 #---------------set up the combinationlayer
@@ -305,7 +327,7 @@ train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 #-------------- input label = 0, if x1 and x2 is same, label = 1 if x1 and x2 is not same
 
 with tf.name_scope("loss"):
-	margin = 5.0 # define the C. could be 5.0 or 1.0
+	margin = 1.0  # define the C. could be 5.0 or 1.0
 	# y should be in the format of 0 or 1, not onehot.
 	#y_t = y
 	#y_f = tf.sub(1.0, y_t, name = "1-y_t")
@@ -326,8 +348,8 @@ with tf.name_scope("loss"):
 	#pos = tf.mul(1-y_t, eucd2, name = "yi_x_eucd2") # the first half of the loss
 	#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "Nyi_x_C-eucd_xx_2") # the second half of the loss
 	
-	#losses = y * eucd2 + (1-y) * tf.square(tf.maximum(0., margin - eucd))
-	losses = y * eucd2 + (1-y) * tf.maximum(0., margin - eucd2)
+	losses = y * eucd2 + (1-y) * tf.square(tf.maximum(0., margin - eucd))
+	#losses = y * eucd2 + (1-y) * tf.maximum(0., margin - eucd2)
 	# follow the paper, the function is not symmetrical
 	#pos = tf.mul(y_f, eucd2, name = "Nyi_x_eucd2") # the first half of the loss
 	#neg = tf.mul(y_t, tf.pow(tf.maximum(tf.sub(C, eucd),0),2), name = "yi_x_C-eucd_xx_2") # the second half of the loss

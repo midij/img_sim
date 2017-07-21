@@ -155,15 +155,24 @@ def list_to_predict_data(inlist):
 	
 
 
-##let's define a simple graph here
 # net related functions
 def weight_variable(shape):
-	initial = tf.truncated_normal(shape, stddev=0.1)
+	initial = tf.truncated_normal(shape, stddev=0.01)
 	return tf.Variable(initial)
 
 def bias_variable(shape):
-	inital = tf.constant(0.1, shape= shape)
+	inital = tf.constant(0.01, shape= shape)
 	return tf.Variable(initial)
+
+def weight_get_variable(name, shape):
+        initer = tf.truncated_normal_initializer(stddev=0.01)
+        return tf.get_variable(name, dtype = tf.float32, shape=shape, initializer = initer)
+        #return tf.get_variable(initial)
+
+def bias_get_variable(name, shape):
+        return tf.get_variable(name, dtype=tf.float32, initializer=tf.constant(0.01, shape=shape, dtype=tf.float32))
+
+
 
 def conv2d(x, W):
 	# for strdies[0] = strides[3] = 1, strides width = strides height = 2
@@ -185,6 +194,20 @@ def get_accuracy(in_x1, in_x2, ideal_y):
 	return result
 
 
+def conv_relu_maxpool(input, kernel_shape, bias_shape, name):
+        W = weight_get_variable(name + "_W",kernel_shape)
+        b = bias_get_variable(name + "_b", bias_shape)
+        h = tf.nn.relu(conv2d(input, W) + b)
+        pool = max_pool_2x2(h)
+        #pool = h # remove max pooling
+        return pool
+
+def fc_layer(input, weight_shape, bias_shape, name):
+        W = weight_get_variable(name + "_W", weight_shape)
+        b = bias_get_variable(name + "_b", bias_shape)
+        fc = tf.matmul(input, W) + b
+        return fc
+
 
 
 #define place holders for inputs
@@ -202,34 +225,53 @@ with tf.name_scope("inputs"):
 
 with tf.name_scope("leftlayers"):
 	x1_image = tf.reshape(x1, [-1, IMG_SIZE, IMG_SIZE, 3])
+	'''
 	#W_conv1 = tf.get_variable("W_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
 	W_conv1 = weight_variable([3,3,3,32])
 	#b_conv1 = tf.get_variable("b_conv1", [32]) 
 	b_conv1 = weight_variable([32]) 
 	h_conv1 = tf.nn.relu(conv2d(x1_image, W_conv1) + b_conv1) #128 -> 64
 	h_pool1 = max_pool_2x2(h_conv1) #64 ->32
+	'''
+	h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11")	# 128 -> 32
 
-
+	'''
 	#W_conv2 = tf.get_variable("W_conv2", [3,3,32,64]) #patch = 3*3, input chanel =3, output chanel = 32
 	W_conv2 = weight_variable([3,3,32,64])
 #b_conv2 = tf.get_variable("b_conv2", [64]) 
 	b_conv2 = weight_variable([64])
 	h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2) #32->16
 	h_pool2 = max_pool_2x2(h_conv2)	#16->8
+	'''
+	h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") #32->8
 
 	h_pool2_flat = tf.reshape(h_pool2, [-1, 8*8*64])
 	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 	#fc1 layer:
+	h_fc1 = fc_layer(h_pool2_flat,[8*8*64, 512],[512], "fc11")
+	'''
 	W_fc1 =tf.get_variable("W_fc1", [8*8*64, 512])
 	b_fc1 = tf.get_variable("b_fc1", [512])
-	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+	'''
+	h_fc1 = tf.nn.relu(h_fc1)
 	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
 	x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
+	h2_pool1 = conv_relu_maxpool(x2_image, [3,3,3,32],[32], "conv21")	# 128 -> 32
+	h2_pool2 = conv_relu_maxpool(h2_pool1, [3,3,32,64],[64], "conv22") #32->8
 
+	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 8*8*64])
+	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+	#fc1 layer:
+	h2_fc1 = fc_layer(h2_pool2_flat,[8*8*64, 512],[512], "fc21")
+	h2_fc1 = tf.nn.relu(h2_fc1)
+	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
+
+
+	'''
 	#define the first conv layer
 	#W2_conv1 = tf.get_variable("W2_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
 	W2_conv1 = weight_variable([3,3,3,32])
@@ -250,21 +292,21 @@ with tf.name_scope("rightlayers"):
 	b2_fc1 = tf.get_variable("b_fc2", [512])
 	h2_fc1 = tf.nn.relu(tf.matmul(h2_pool2_flat, W2_fc1) + b2_fc1)
 	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
-
+	'''
 #---------------set up the combinationlayer
 # combine layer
 with tf.name_scope("combinationlayer"):
-	W_cb1 = tf.get_variable("W_cb1", [8*8*64,512])
-	W2_cb1 = tf.get_variable("W2_cb1", [8*8*64,512])
-	b_cb1 = tf.get_variable("b_cb1", [512])
+	W_cb1 = weight_get_variable("W_cb1", [8*8*64,512])
+	W2_cb1 = weight_get_variable("W2_cb1", [8*8*64,512])
+	b_cb1 = bias_get_variable("b_cb1", [512])
 	h_cb1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_cb1) + tf.matmul(h2_pool2_flat, W2_cb1)+ b_cb1)
 	h_cb1_drop = tf.nn.dropout(h_cb1, keep_prob)
 
 
 #fc2 layer
 with tf.name_scope("softmaxlayer"):
-	W_sf1 = tf.get_variable("W_sf1", [512, 2])
-	b_sf1 = tf.get_variable("b_sf1", [2])
+	W_sf1 = weight_get_variable("W_sf1", [512, 2])
+	b_sf1 = bias_get_variable("b_sf1", [2])
 	logits = tf.matmul(h_cb1_drop, W_sf1) + b_sf1
 	#logits = tf.Print(logits, [logits],"logits:")
 	#y_conv = tf.nn.softmax(logits)
@@ -317,10 +359,10 @@ def train_with_epoch():
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
-	#epoch_num = 2000
-	#iter_per_epoch = 15 
+
 
 	epoch_num = 30000
+	#epoch_num = 1
 	iter_per_epoch = 1
 
 	#get an untouched  data test for final test
@@ -394,7 +436,8 @@ if __name__ == '__main__':
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
 		modelname ="nets/save_net_2017-07-07_20_48_33.ckpt" 
-		pred_filestr = "predict_list.txt"	
+		#pred_filestr = "predict_list.txt"	
+		pred_filestr = "untouched_test_list.txt"
 		if len(sys.argv) >= 3:
 			modelname = sys.argv[2]
 			print modelname

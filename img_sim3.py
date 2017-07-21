@@ -199,7 +199,7 @@ def get_accuracy(in_x1, in_x2, ideal_y):
 	return result
 
 def get_siamese_accuracy(eucd, labels):
-	eucd_label = [0 if x <0.5 else 1 for x in eucd]
+	eucd_label = [0 if x > 0.5 else 1 for x in eucd]
 	correct = [1 if x == y else 0 for x, y in zip(eucd_label,labels)]
 	return np.mean(correct)
 
@@ -261,29 +261,6 @@ with tf.name_scope("rightlayers"):
 	h2_fc1 = tf.nn.relu(h2_fc1)
 	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
 
-	'''
-	#define the first conv layer
-	#W2_conv1 = tf.get_variable("W2_conv1", [3,3,3,32]) #patch = 3*3, input chanel =3, output chanel = 32
-	W2_conv1 = weight_get_variable("W2_conv1", [3,3,3,32])
-	b2_conv1 = weight_get_variable("b2_conv1", [32]) 
-	h2_conv1 = tf.nn.relu(conv2d(x2_image, W2_conv1) + b2_conv1) #128 -> 64
-	#h2_pool1 = max_pool_2x2(h2_conv1) #64 ->32
-	h2_pool1 = h2_conv1 # remove max pooling
-
-	W2_conv2 = weight_get_variable("W2_conv2", [3,3,32,64]) #patch = 3*3, input chanel =3, output chanel = 32
-	b2_conv2 = weight_get_variable("b2_conv2", [64]) 
-	h2_conv2 = tf.nn.relu(conv2d(h2_pool1, W2_conv2) + b2_conv2) #32->16
-	#h2_pool2 = max_pool_2x2(h2_conv2)	#16->8
-	h2_pool2 = h2_conv2 # remove max pooling
-	h2_pool2_flat = tf.reshape(h2_pool2, [-1, 32*32*64])
-	#h2_pool2_flat = tf.Print(h2_pool2_flat,[h2_pool2_flat], "h2_pool2_flat:")
-
-	#fc1  layer
-	W2_fc1 = tf.get_variable("W_fc2", [32*32*64, 512])
-	b2_fc1 = tf.get_variable("b_fc2", [512])
-	h2_fc1 = tf.nn.relu(tf.matmul(h2_pool2_flat, W2_fc1) + b2_fc1)
-	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
-	'''
 
 '''
 #---------------set up the combinationlayer

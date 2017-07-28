@@ -17,6 +17,7 @@ import logging
 import dataloader
 from time import gmtime, strftime
 import time
+from tensorflow.python.saved_model import builder as saved_model_builder
 
 IMG_SIZE = 128
 
@@ -465,6 +466,27 @@ def predict_siamese_sim(pairlist):
 		print "predict: " + pair + "\t"+ str(dist)
 
 
+
+def export_model_for_serving():
+	# load an existing model	
+	modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+	load_model(modelname)
+
+	#export to serving format	
+	saved_model_dir = "./exported_model/"
+	builder = saved_model_builder.SavedModelBuilder(saved_model_dir)
+	#builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+	'''
+	inputs = {"input_x1": tf.saved_model.utils.build_tensor_info(x1),
+		"input_x2": tf.saved_model.utils.build_tensor_info(x2),
+		"keep_prob": tf.saved_model.utils.build_tensor_info(keep_prob)}
+	outputs = {"output": tf.saved_model.utils.build_tensor_info(y)}
+	signature = tf.saved_model.signature_def_utils.build_signature_def(inputs, outputs, "test_sig_name")	
+	'''
+	#inputs = tf.python.saved_model.utils.build_tensor_info(x1)
+	builder.add_meta_graph_and_variables(sess, ['imgsim_test_export_1'])
+	builder.save()
+
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		print_usage()
@@ -492,6 +514,8 @@ if __name__ == '__main__':
 		print "do prediction ..."
 		#predict(pred_list)	
 		predict_siamese_sim(pred_list)
+	elif mode == "export": #export the model for serving
+		export_model_for_serving()	
 	else:
 		print_usage()
 	sys.exit()

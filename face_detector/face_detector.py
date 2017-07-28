@@ -4,6 +4,8 @@ import sys
 cascPath = "haarcascade_frontalface_default.xml"
 
 	
+
+#only save the first recoganized face
 def do_corp(infilestr):
 	ofilestr = None
 	# Creatge the haar cascade

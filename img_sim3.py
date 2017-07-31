@@ -474,8 +474,8 @@ def export_model_for_serving():
 
 	#export to serving format	
 	saved_model_dir = "./exported_model/"
-	builder = saved_model_builder.SavedModelBuilder(saved_model_dir)
-	#builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+	#builder = saved_model_builder.SavedModelBuilder(saved_model_dir)
+	builder = tf.saved_model.builder.SavedModelBuilder(saved_model_dir)
 	'''
 	inputs = {"input_x1": tf.saved_model.utils.build_tensor_info(x1),
 		"input_x2": tf.saved_model.utils.build_tensor_info(x2),
@@ -498,8 +498,10 @@ if __name__ == '__main__':
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
 		#pred_filestr = "predict_list.txt"	
-		modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
-		pred_filestr = "untouched_test_list.txt"	
+		#modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
+		modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+		#pred_filestr = "untouched_test_list.txt"	
+		pred_filestr = "predict_list.txt"
                 if len(sys.argv) >= 3:
                         modelname = sys.argv[2]
                         print modelname

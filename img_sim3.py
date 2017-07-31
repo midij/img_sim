@@ -469,23 +469,29 @@ def predict_siamese_sim(pairlist):
 
 def export_model_for_serving():
 	# load an existing model	
-	modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+	#modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+	modelname= "nets/save_net_2017-07-22_00_05_22.ckpt"
 	load_model(modelname)
 
 	#export to serving format	
 	saved_model_dir = "./exported_model/"
 	#builder = saved_model_builder.SavedModelBuilder(saved_model_dir)
 	builder = tf.saved_model.builder.SavedModelBuilder(saved_model_dir)
-	'''
+
 	inputs = {"input_x1": tf.saved_model.utils.build_tensor_info(x1),
 		"input_x2": tf.saved_model.utils.build_tensor_info(x2),
 		"keep_prob": tf.saved_model.utils.build_tensor_info(keep_prob)}
 	outputs = {"output": tf.saved_model.utils.build_tensor_info(y)}
 	signature = tf.saved_model.signature_def_utils.build_signature_def(inputs, outputs, "test_sig_name")	
-	'''
-	#inputs = tf.python.saved_model.utils.build_tensor_info(x1)
-	builder.add_meta_graph_and_variables(sess, ['imgsim_test_export_1'])
+
+	builder.add_meta_graph_and_variables(
+		sess, 
+		#['imgsim_test_export_1'], 
+		[tf.saved_model.tag_constants.SERVING], #it seems you have to use this tag if you want to serve
+		{"test_signature":signature}
+	)
 	builder.save()
+	print "Done Exporting!"
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:

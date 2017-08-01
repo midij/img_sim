@@ -526,9 +526,11 @@ if __name__ == '__main__':
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
 		#pred_filestr = "predict_list.txt"	
 		#modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
-		modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+		#modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
+		modelname = "nets/save_net_2017-08-01_04_34_09.ckpt"
 		#pred_filestr = "untouched_test_list.txt"	
 		pred_filestr = "predict_list.txt"
+		#pred_filestr = "image_face_v1_list.txt"
                 if len(sys.argv) >= 3:
                         modelname = sys.argv[2]
                         print modelname

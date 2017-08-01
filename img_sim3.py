@@ -210,6 +210,8 @@ def conv_relu_maxpool(input, kernel_shape, bias_shape, name):
 	W = weight_get_variable(name + "_W",kernel_shape)
 	b = bias_get_variable(name + "_b", bias_shape) 
 	h = tf.nn.relu(conv2d(input, W) + b) 
+	print W.name
+	print b.name
 	#pool = max_pool_2x2(h) 
 	pool = h # remove max pooling
 	return pool
@@ -235,19 +237,20 @@ with tf.name_scope("inputs"):
 #define the first conv layer
 
 with tf.name_scope("leftlayers"):
-	x1_image = tf.reshape(x1, [-1, IMG_SIZE, IMG_SIZE, 3])
-	#kernel = 3*3, input chanel =3, output chanel = 32
-	#stride = 2,2
-	h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11") #128 -> 64
-	h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") # 64-> 32
-	h_pool2_flat = tf.reshape(h_pool2, [-1, 32*32*64])
-	#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
-
-	#fc1 layer:
-	h_fc1 = fc_layer(h_pool2_flat, [32*32*64, 512],[512], "fc11")
-	h_fc1 = tf.nn.relu(h_fc1)
-	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-
+	with tf.variable_scope("trained_variables"):
+		x1_image = tf.reshape(x1, [-1, IMG_SIZE, IMG_SIZE, 3])
+		#kernel = 3*3, input chanel =3, output chanel = 32
+		#stride = 2,2
+		h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11") #128 -> 64
+		h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") # 64-> 32
+		h_pool2_flat = tf.reshape(h_pool2, [-1, 32*32*64])
+		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+	
+		#fc1 layer:
+		h_fc1 = fc_layer(h_pool2_flat, [32*32*64, 512],[512], "fc11")
+		h_fc1 = tf.nn.relu(h_fc1)
+		h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+'''
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
 	x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
@@ -261,6 +264,24 @@ with tf.name_scope("rightlayers"):
 	h2_fc1 = fc_layer(h2_pool2_flat, [32*32*64, 512],[512], "fc21")
 	h2_fc1 = tf.nn.relu(h2_fc1)
 	h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
+'''
+
+# to reuse the same set of variables that are defined in left net;
+#----------------set up the net of the right side
+with tf.name_scope("rightlayers"):
+
+	with tf.variable_scope("trained_variables", reuse=True):
+		x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
+	
+		h2_pool1 = conv_relu_maxpool(x2_image, [3,3,3,32],[32], "conv11") #128 -> 64
+		h2_pool2 = conv_relu_maxpool(h2_pool1, [3,3,32,64],[64], "conv12") # 64-> 32
+
+		h2_pool2_flat = tf.reshape(h2_pool2, [-1, 32*32*64])
+		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
+		#fc1 layer:
+		h2_fc1 = fc_layer(h2_pool2_flat, [32*32*64, 512],[512], "fc11")
+		h2_fc1 = tf.nn.relu(h2_fc1)
+		h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
 
 
 '''

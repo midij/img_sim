@@ -182,7 +182,8 @@ def bias_get_variable(name, shape):
 
 def conv2d(x, W):
 	# for strdies[0] = strides[3] = 1, strides width = strides height = 2
-	return tf.nn.conv2d(x, W, strides = [1,2,2,1], padding = 'SAME')
+	#return tf.nn.conv2d(x, W, strides = [1,2,2,1], padding = 'SAME')
+	return tf.nn.conv2d(x, W, strides = [1,1,1,1], padding = 'SAME') #move one step each time
 	#return tf.nn.conv2d(x, W, strides = [1,2,2,1], padding = 'VALID')
 	
 def max_pool_2x2(x):
@@ -247,16 +248,19 @@ with tf.name_scope("leftlayers"):
 		#kernel = 3*3, input chanel =3, output chanel = 32
 		#stride = 2,2
 		#h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11") #128 -> 32 
-		h_pool1 = conv_relu_maxpool_dropout(x1_image, [3,3,3,32],[32], "conv11", 0.7) #128 -> 32 
+		h_pool1 = conv_relu_maxpool_dropout(x1_image, [3,3,3,32],[32], "conv11", 0.7) #128 -> 64
 		#h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") # 32-> 8
-		h_pool2 = conv_relu_maxpool_dropout(h_pool1, [3,3,32,64],[64], "conv12", 0.7) # 32-> 8
-		h_pool2_flat = tf.reshape(h_pool2, [-1, 8*8*64])
+		h_pool2 = conv_relu_maxpool_dropout(h_pool1, [3,3,32,64],[64], "conv12", 0.7) # 64-> 32
+		
+		h_pool3 = conv_relu_maxpool_dropout(h_pool2, [3,3,64,128],[128], "conv13", 0.7) # 32->16 
+
+		h_pool3_flat = tf.reshape(h_pool3, [-1, 16*16*128])
 		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 	
 		#fc1 layer:
-		h_fc1 = fc_layer(h_pool2_flat, [8*8*64, 512],[512], "fc11")
+		h_fc1 = fc_layer(h_pool3_flat, [16*16*128, 1024],[1024], "fc11")
 		h_fc1 = tf.nn.relu(h_fc1)
-		h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+		#h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 '''
 #----------------set up the net of the right side
 with tf.name_scope("rightlayers"):
@@ -281,16 +285,18 @@ with tf.name_scope("rightlayers"):
 		x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
 	
 		#h2_pool1 = conv_relu_maxpool(x2_image, [3,3,3,32],[32], "conv11") #128 -> 32
-		h2_pool1 = conv_relu_maxpool_dropout(x2_image, [3,3,3,32],[32], "conv11", 0.7) #128 -> 32
+		h2_pool1 = conv_relu_maxpool_dropout(x2_image, [3,3,3,32],[32], "conv11", 0.7) #128 ->64 
 		#h2_pool2 = conv_relu_maxpool(h2_pool1, [3,3,32,64],[64], "conv12") # 32-> 8
-		h2_pool2 = conv_relu_maxpool_dropout(h2_pool1, [3,3,32,64],[64], "conv12", 0.7) # 32-> 8
+		h2_pool2 = conv_relu_maxpool_dropout(h2_pool1, [3,3,32,64],[64], "conv12", 0.7) # 64 -> 32
+		
+		h2_pool3 = conv_relu_maxpool_dropout(h2_pool2, [3,3,64,128],[128], "conv13", 0.7) # 32 ->16 
 
-		h2_pool2_flat = tf.reshape(h2_pool2, [-1, 8*8*64])
+		h2_pool3_flat = tf.reshape(h2_pool3, [-1, 16*16*128])
 		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 		#fc1 layer:
-		h2_fc1 = fc_layer(h2_pool2_flat, [8*8*64, 512],[512], "fc11")
+		h2_fc1 = fc_layer(h2_pool3_flat, [16*16*128, 1024],[1024], "fc11")
 		h2_fc1 = tf.nn.relu(h2_fc1)
-		h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
+		#h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
 
 
 '''
@@ -391,8 +397,8 @@ def train():
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
 
-	epoch_num = 50000
-	#epoch_num = 1
+	#epoch_num = 50000
+	epoch_num = 1
 	iter_per_epoch = 1
 	# get an untouched  data test for final test
 	# load from list and remove them 

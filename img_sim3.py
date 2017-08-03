@@ -387,18 +387,19 @@ sess.run(init)
 def print_usage():
 	print "%s train"%sys.argv[0]
 	print "%s predict [modelname]"%sys.argv[0]
+	print "%s testtrain: it will not save the model"%sys.argv[0]
 	sys.exit(42)
 
 
-def train():
+def train(epoch_num=30000):
 	#loader = dataloader.DataLoader("dataset_conf_path.txt")
 	#loader = dataloader.DataLoader("face_dataset_conf_path.txt")
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
 
-	#epoch_num = 50000
-	epoch_num = 1
+	#epoch_num = 30000
+	#epoch_num = 1
 	iter_per_epoch = 1
 	# get an untouched  data test for final test
 	# load from list and remove them 
@@ -443,13 +444,13 @@ def train():
 			#print"on trained after:", (get_accuracy(in_x1, in_x2, in_y))
 			loss_after = sess.run(loss, feed_dict={x1: in_x1, x2:in_x2, y:in_y, keep_prob:1})
 			print "report on %d th turn, trained %d iterations, on train: %f -> %f; on test: loss= %f; accu = %f"%(i, iter_per_epoch, loss_before, loss_after, loss_test, accu_test)
-
+			'''
 			print "============ start debug session =============================="
 			#print "tensor shape h_pool2_flat", h_pool2_flat.get_shape().as_list()
-			print "tensor shape h_pool2_flat", sess.run(h_pool2_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
+			print "tensor shape h_pool3_flat", sess.run(h_pool3_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			print "tensor shape h_fc1", sess.run(h_fc1, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			#print "tensor shape h2_pool2_flat", h2_pool2_flat.get_shape().as_list()
-			print "tensor shape h2_pool2_flat", sess.run(h2_pool2_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
+			print "tensor shape h2_pool3_flat", sess.run(h2_pool3_flat, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			print "tensor shape h2_fc1", sess.run(h2_fc1, feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1}).shape
 			#print "tensor shape eucd2:", eucd2.get_shape().as_list()
 			#print "tensor shape eucd:",  eucd.get_shape().as_list()
@@ -458,8 +459,8 @@ def train():
 			print "test_y:", np.shape(test_y)
 			print test_y
 			print "============ end debug session =============================="
-
-
+			'''
+			
 		# save tmp model
 		if (i% 5000 == 0) and (i > 1):
 			save_model("tmp.ckpt")
@@ -536,6 +537,9 @@ if __name__ == '__main__':
 	if mode == "train":
 		train()
 		save_model()
+	elif mode == "testtrain":
+		mini_batch_num = 1
+		train(mini_batch_num)
 	elif mode == "predict":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")

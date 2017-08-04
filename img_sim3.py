@@ -200,8 +200,8 @@ def get_accuracy(in_x1, in_x2, ideal_y):
 	result = sess.run(accuracy, feed_dict={x1: in_x1, x2:in_x2, y:ideal_y, keep_prob:1})
 	return result
 
-def get_siamese_accuracy(eucd, labels):
-	eucd_label = [0 if x > 0.5 else 1 for x in eucd]
+def get_siamese_accuracy(eucd, labels, threshold= 0.5):
+	eucd_label = [0 if x > threshold else 1 for x in eucd]
 	correct = [1 if x == y else 0 for x, y in zip(eucd_label,labels)]
 	return np.mean(correct)
 
@@ -386,8 +386,9 @@ sess.run(init)
 
 def print_usage():
 	print "%s train"%sys.argv[0]
-	print "%s predict [modelname]"%sys.argv[0]
 	print "%s testtrain: it will not save the model"%sys.argv[0]
+	print "%s predict [modelname]"%sys.argv[0]
+	print "%s predict_with_accu [modelname]"%sys.argv[0]
 	sys.exit(42)
 
 
@@ -486,6 +487,7 @@ def load_model(netfilestr):
 	#print("weights:", sess.run(W_conv1))
 	#print("biases:", sess.run(b_conv1))
 
+#input has only x1 and x2
 def predict(pairlist):	
 	for pair in pairlist:
 		pre_x1, pre_x2 = list_to_predict_data([pair])
@@ -494,13 +496,37 @@ def predict(pairlist):
 		label = np.argmax(y_pre) 
 		print "predict: " + pair + "\t"+ str(label)
 		print "details:", y_pre
+
+
+#input has x1, x2 and label
+def predict_siamese_sim_with_accuracy(pairlist):
+
+	pred_y = []
+	labels = []
+	for line in pairlist:
+		x1_list, x2_list, label_list= list_to_data([line], label_type = "scalar_revert")
+		dist = sess.run(eucd, feed_dict = {x1: x1_list, x2: x2_list, keep_prob:1})
+		print line + "\t" + str(dist[0])
+		labels.append(label_list[0])
+		pred_y.append(dist[0])
 	
+	accu = get_siamese_accuracy(pred_y, labels)
+	print "accuracy: ", accu
+	'''	
+	x1_list = x1_list[:300]
+	x2_list = x2_list[:300]
+	label_list = label_list[:300]
+
+	y_pre = sess.run(eucd, feed_dict = {x1:x1_list, x2:x2_list, y:label_list, keep_prob:1}) 
+	print x1_list
+	'''
+
 def predict_siamese_sim(pairlist):
 	for pair in pairlist:
 		pre_x1, pre_x2 = list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
 		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2, keep_prob:1})
-		print "predict: " + pair + "\t"+ str(dist)
+		print "predict: " + pair + "\t"+ str(dist[0])
 
 
 
@@ -540,15 +566,15 @@ if __name__ == '__main__':
 	elif mode == "testtrain":
 		mini_batch_num = 1
 		train(mini_batch_num)
-	elif mode == "predict":
+	elif mode == "predict" or mode == "predict_with_accu":
 		#load_model("nets/save_net_2017-06-24_19_30_32.ckpt")	
 		#load_model("nets/save_net_2017-06-29_12_45_02.ckpt")
 		#pred_filestr = "predict_list.txt"	
 		#modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
 		#modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
 		modelname = "nets/save_net_2017-08-01_04_34_09.ckpt"
-		#pred_filestr = "untouched_test_list.txt"	
-		pred_filestr = "predict_list.txt"
+		pred_filestr = "untouched_test_list.txt"	
+		#pred_filestr = "predict_list.txt"
                 if len(sys.argv) >= 3:
                         modelname = sys.argv[2]
                         print modelname
@@ -562,7 +588,10 @@ if __name__ == '__main__':
 		
 		print "do prediction ..."
 		#predict(pred_list)	
-		predict_siamese_sim(pred_list)
+		if mode == "predict":
+			predict_siamese_sim(pred_list) #only x1 and x2
+		elif mode == "predict_with_accu":
+			predict_siamese_sim_with_accuracy(pred_list)	#x1, x2 and label
 	elif mode == "export": #export the model for serving
 		export_model_for_serving()	
 	else:

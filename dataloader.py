@@ -1,6 +1,9 @@
 import sys
 import random
 import os
+import cv2
+import numpy as np
+import logging
 
 class DataLoader(object):
 	infile  = None
@@ -171,5 +174,110 @@ class DataLoader(object):
 			
 		return merged_list
 
+
+class ImageLoader(object):
+	
+	IMG_SIZE = 128
+	def denseToOneHot(self, labels_dense, num_classes):
+   		#Convert class labels from scalars to one-hot vectors.
+		num_labels = labels_dense.shape[0]
+		index_offset = np.arange(num_labels) * num_classes
+		labels_one_hot = np.zeros((num_labels, num_classes))
+		labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+		return labels_one_hot
+
+
+	
+
+	def loadFeatures(self, files):
+		data = np.ndarray((len(files), self.IMG_SIZE * self.IMG_SIZE * 3))
+		for n, f in enumerate(files):
+			logging.debug('loading file #%d' % n)
+			img = cv2.imread(f)
+        		#print(img.shape)
+			#img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+			#cv2.imshow("orig", img)
+			h, w, _ = img.shape
+			#print h
+			#print w
+			
+			if w > h:
+				diff = w - h
+				img = img[:, diff / 2: diff / 2 + h]
+			elif w < h:
+				diff = h - w
+				img = img[diff / 2: diff / 2 + w, :]
+			#print(img.shape) 
+			img = cv2.resize(img, (self.IMG_SIZE, self.IMG_SIZE))
+			data[n] = img.ravel()
+			# cv2.imshow("res", img)
+			# cv2.waitKey(0)
+		return data
+
+	#input: labbel_type = onehot or scalar or scalar_revert
+	# it will return you : [0,1] or 1, value for a label
+	def list_to_data(self, inlist, label_type = "onehot"):
+		x1_list = []
+		x2_list = []
+		label_list = []
+		#split line into lists
+		for line in inlist:
+			line = line.strip()
+			if line=='': continue
+			cols = line.split('\t')
+			if len(cols) <  3:
+				logging.debug('input fields less than 3')
+				continue
+			if cols[0].strip()== "": 
+				continue
+			if cols[1].strip()== "": 
+				continue
+			if cols[2].strip()== "": 
+				continue
+			#string label to int label
+			try:
+				val_y = int(cols[2])
+			except:
+				continue	
+			x1_list.append(cols[0])
+			x2_list.append(cols[1])
+			label_list.append(val_y)
+
+			#print cols[0]
+			#print cols[1]
+			#print (val_y)
+		x1 = self.loadFeatures(x1_list)
+		x2 = self.loadFeatures(x2_list)
+		if label_type == "onehot":
+			label_list = self.denseToOneHot(np.array(label_list),2)
+		elif label_type == "scalar":
+			label_list = np.reshape(label_list,(-1,1))
+		elif label_type == "scalar_revert":
+			#label_list[:] = [1-x for x in label_list]
+			#label_list = np.reshape(label_list,(-1,1))
+			pass
+		return x1, x2, label_list
+
+	def list_to_predict_data(self, inlist):
+		x1_list = []
+		x2_list = []
+		for line in inlist:
+			line = line.strip()
+			if line == "": continue
+			cols = line.split('\t')
+			if len(cols) < 2:
+				logging.debug('input fields less than 2')
+				continue
+			if cols[0].strip() == "":
+				continue
+			if cols[1].strip() == "":
+				continue
+			x1_list.append(cols[0])
+			x2_list.append(cols[1])
+
+		x1 = self.loadFeatures(x1_list)
+		x2 = self.loadFeatures(x2_list)
+		return x1, x2	
+		
 
 

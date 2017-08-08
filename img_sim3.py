@@ -21,6 +21,7 @@ from tensorflow.python.saved_model import builder as saved_model_builder
 
 IMG_SIZE = 128
 
+'''
 def denseToOneHot(labels_dense, num_classes):
     #Convert class labels from scalars to one-hot vectors.
     num_labels = labels_dense.shape[0]
@@ -58,7 +59,8 @@ def loadFeatures(files):
     return data
 
 
-
+'''
+'''
 def load_dataset_list(datasetconf):
 	x1_list = []
 	x2_list = []
@@ -91,8 +93,9 @@ def load_dataset_list(datasetconf):
 	#print x2_list
 	#print label_list
 	return x1_list, x2_list, label_list
-	
+'''	
 
+'''
 #input: labbel_type = onehot or scalar or scalar_revert
 # it will return you : [0,1] or 1, value for a label
 def list_to_data(inlist, label_type = "onehot"):
@@ -137,6 +140,9 @@ def list_to_data(inlist, label_type = "onehot"):
 		pass
 	return x1, x2, label_list
 
+'''
+
+'''
 def list_to_predict_data(inlist):
 	x1_list = []
 	x2_list = []
@@ -157,7 +163,7 @@ def list_to_predict_data(inlist):
 	x1 = loadFeatures(x1_list)
 	x2 = loadFeatures(x2_list)
 	return x1, x2	
-	
+'''	
 
 
 ##let's define a simple graph here
@@ -398,7 +404,7 @@ def train(epoch_num=30000):
 	img_path= "./data/image_face_v0/images_face/"
 	loader = dataloader.DataLoader("image_face_v0_list.txt",img_path)
 	loader.load_list()
-
+	image_loader = dataloader.ImageLoader()
 	#epoch_num = 30000
 	#epoch_num = 1
 	iter_per_epoch = 1
@@ -413,7 +419,7 @@ def train(epoch_num=30000):
 	# load from list and remove them
 	test_list = loader.get_test_set(300,300)
 	#t_x1, t_x2, t_y = list_to_data(test_list, label_type = "onehot")
-	t_x1, t_x2, t_y = list_to_data(test_list, label_type = "scalar_revert")
+	t_x1, t_x2, t_y = image_loader.list_to_data(test_list, label_type = "scalar_revert")
 	# do training.
 	# without using test data loaded before.
 	for i in range(epoch_num):
@@ -421,7 +427,7 @@ def train(epoch_num=30000):
 		train_list = loader.next_epoch_list(100,100)
 		print loader.pos_idx, loader.neg_idx
 		#in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
-		in_x1, in_x2, in_y = list_to_data(train_list, label_type = "scalar_revert")
+		in_x1, in_x2, in_y = image_loader.list_to_data(train_list, label_type = "scalar_revert")
 
 			
 		loss_before =-1.0
@@ -437,7 +443,7 @@ def train(epoch_num=30000):
 		for j in range(iter_per_epoch):
 			sess.run(train_step,  feed_dict = {x1:in_x1, x2:in_x2, y:in_y, keep_prob:0.5})
 		if i % 50 == 0:
-			endtimet= time.time()
+			endtime = time.time()
 			#print"on test:", (get_accuracy(t_x1, t_x2, t_y))
 			loss_test, dist, test_y = sess.run([loss,eucd,y], feed_dict={x1: t_x1, x2:t_x2, y:t_y, keep_prob:1})
 			accu_test = get_siamese_accuracy(dist, t_y)			
@@ -489,8 +495,10 @@ def load_model(netfilestr):
 
 #input has only x1 and x2
 def predict(pairlist):	
+	
+	image_loader = dataloader.ImageLoader()
 	for pair in pairlist:
-		pre_x1, pre_x2 = list_to_predict_data([pair])
+		pre_x1, pre_x2 = image_loader.list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
 		y_pre = sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1})
 		label = np.argmax(y_pre) 
@@ -503,8 +511,9 @@ def predict_siamese_sim_with_accuracy(pairlist):
 
 	pred_y = []
 	labels = []
+	image_loader = dataloader.ImageLoader()
 	for line in pairlist:
-		x1_list, x2_list, label_list= list_to_data([line], label_type = "scalar_revert")
+		x1_list, x2_list, label_list= image_loader.list_to_data([line], label_type = "scalar_revert")
 		dist = sess.run(eucd, feed_dict = {x1: x1_list, x2: x2_list, keep_prob:1})
 		print line + "\t" + str(dist[0])
 		labels.append(label_list[0])
@@ -512,18 +521,13 @@ def predict_siamese_sim_with_accuracy(pairlist):
 	
 	accu = get_siamese_accuracy(pred_y, labels)
 	print "accuracy: ", accu
-	'''	
-	x1_list = x1_list[:300]
-	x2_list = x2_list[:300]
-	label_list = label_list[:300]
 
-	y_pre = sess.run(eucd, feed_dict = {x1:x1_list, x2:x2_list, y:label_list, keep_prob:1}) 
-	print x1_list
-	'''
 
 def predict_siamese_sim(pairlist):
+
+	image_loader = dataloader.ImageLoader()
 	for pair in pairlist:
-		pre_x1, pre_x2 = list_to_predict_data([pair])
+		pre_x1, pre_x2 = image_loader.list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
 		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2, keep_prob:1})
 		print "predict: " + pair + "\t"+ str(dist[0])
@@ -533,19 +537,23 @@ def predict_siamese_sim(pairlist):
 def export_model_for_serving():
 	# load an existing model	
 	#modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
-	modelname= "nets/save_net_2017-07-22_00_05_22.ckpt"
+	#modelname= "nets/save_net_2017-07-22_00_05_22.ckpt"
+	modelname = "working_nets/save_net_2017-08-03_13_38_47.ckpt"
 	load_model(modelname)
 
+	export_path_base= "./exported_model/"
+	version = "1"
 	#export to serving format	
-	saved_model_dir = "./exported_model/"
+	saved_model_dir = export_path_base+"/"+version 
 	#builder = saved_model_builder.SavedModelBuilder(saved_model_dir)
 	builder = tf.saved_model.builder.SavedModelBuilder(saved_model_dir)
 
 	inputs = {"input_x1": tf.saved_model.utils.build_tensor_info(x1),
 		"input_x2": tf.saved_model.utils.build_tensor_info(x2),
 		"keep_prob": tf.saved_model.utils.build_tensor_info(keep_prob)}
-	outputs = {"output": tf.saved_model.utils.build_tensor_info(y)}
-	signature = tf.saved_model.signature_def_utils.build_signature_def(inputs, outputs, "test_sig_name")	
+
+	outputs = {"output": tf.saved_model.utils.build_tensor_info(eucd)}
+	signature = tf.saved_model.signature_def_utils.build_signature_def(inputs, outputs,"tensorflow/serving/regress")	
 
 	builder.add_meta_graph_and_variables(
 		sess, 
@@ -561,7 +569,8 @@ if __name__ == '__main__':
 		print_usage()
 	mode = sys.argv[1]
 	if mode == "train":
-		train()
+		mini_batch_num = 30000
+		train(mini_batch_num)
 		save_model()
 	elif mode == "testtrain":
 		mini_batch_num = 1
@@ -573,24 +582,32 @@ if __name__ == '__main__':
 		#modelname = "nets/save_net_2017-07-12_11_21_10.ckpt"
 		#modelname = "nets/save_net_2017-07-22_06_23_56.ckpt"
 		modelname = "nets/save_net_2017-08-01_04_34_09.ckpt"
-		pred_filestr = "untouched_test_list.txt"	
-		#pred_filestr = "predict_list.txt"
+		#pred_filestr = "dup_predict_list.txt"
                 if len(sys.argv) >= 3:
                         modelname = sys.argv[2]
                         print modelname
 
 		load_model(modelname)
 		pred_list = []
-		with open(pred_filestr, "r") as f:
-			for line in f:
-				line = line.strip()
-				pred_list.append(line)
-		
+
 		print "do prediction ..."
 		#predict(pred_list)	
+
 		if mode == "predict":
+			pred_filestr = "predict_list.txt"
+			with open(pred_filestr, "r") as f:
+				for line in f:
+					line = line.strip()
+					pred_list.append(line)
+			
+
 			predict_siamese_sim(pred_list) #only x1 and x2
 		elif mode == "predict_with_accu":
+			pred_filestr = "untouched_test_list.txt"	
+			with open(pred_filestr, "r") as f:
+				for line in f:
+					line = line.strip()
+					pred_list.append(line)
 			predict_siamese_sim_with_accuracy(pred_list)	#x1, x2 and label
 	elif mode == "export": #export the model for serving
 		export_model_for_serving()	

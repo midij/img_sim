@@ -424,7 +424,8 @@ def train(epoch_num=30000):
 	# without using test data loaded before.
 	for i in range(epoch_num):
 		print "epoch %d"%i
-		train_list = loader.next_epoch_list(100,100)
+		#train_list = loader.next_epoch_list(100,100)
+		train_list = loader.next_epoch_list(16,16)
 		print loader.pos_idx, loader.neg_idx
 		#in_x1, in_x2, in_y = list_to_data(train_list, label_type = "onehot")
 		in_x1, in_x2, in_y = image_loader.list_to_data(train_list, label_type = "scalar_revert")
@@ -569,7 +570,7 @@ if __name__ == '__main__':
 		print_usage()
 	mode = sys.argv[1]
 	if mode == "train":
-		mini_batch_num = 30000
+		mini_batch_num = 150000
 		train(mini_batch_num)
 		save_model()
 	elif mode == "testtrain":

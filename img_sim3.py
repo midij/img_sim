@@ -21,149 +21,6 @@ from tensorflow.python.saved_model import builder as saved_model_builder
 
 IMG_SIZE = 128
 
-'''
-def denseToOneHot(labels_dense, num_classes):
-    #Convert class labels from scalars to one-hot vectors.
-    num_labels = labels_dense.shape[0]
-    index_offset = np.arange(num_labels) * num_classes
-    labels_one_hot = np.zeros((num_labels, num_classes))
-    labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
-    return labels_one_hot
-
-
-	
-
-def loadFeatures(files):
-    data = np.ndarray((len(files), IMG_SIZE * IMG_SIZE * 3))
-    for n, f in enumerate(files):
-        logging.debug('loading file #%d' % n)
-        img = cv2.imread(f)
-        #print(img.shape)
-        #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        #cv2.imshow("orig", img)
-        h, w, _ = img.shape
-	#print h
-	#print w
-	
-        if w > h:
-            diff = w - h
-            img = img[:, diff / 2: diff / 2 + h]
-        elif w < h:
-            diff = h - w
-            img = img[diff / 2: diff / 2 + w, :]
-	#print(img.shape) 
-        img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        data[n] = img.ravel()
-        # cv2.imshow("res", img)
-        # cv2.waitKey(0)
-    return data
-
-
-'''
-'''
-def load_dataset_list(datasetconf):
-	x1_list = []
-	x2_list = []
-	label_list =[]
-	#in the file: image1 "\t" image2 "\t" label = [0|1]
-	with open(datasetconf, 'r') as f:
-		for line in f:
-			line = line.strip()
-			if line=='': continue
-			cols = line.split('\t')
-			if len(cols) <  3:
-				logging.debug('input fields less than 3')
-				continue
-			if cols[0].strip()== "": 
-				continue
-			if cols[1].strip()== "": 
-				continue
-			if cols[2].strip()== "": 
-				continue
-			#string label to int label
-			try:
-				val_y = int(cols[2])
-			except:
-				continue	
-			x1_list.append(cols[0])
-			x2_list.append(cols[1])
-			label_list.append(val_y)
-
-	#print x1_list
-	#print x2_list
-	#print label_list
-	return x1_list, x2_list, label_list
-'''	
-
-'''
-#input: labbel_type = onehot or scalar or scalar_revert
-# it will return you : [0,1] or 1, value for a label
-def list_to_data(inlist, label_type = "onehot"):
-	x1_list = []
-	x2_list = []
-	label_list = []
-	#split line into lists
-	for line in inlist:
-		line = line.strip()
-		if line=='': continue
-		cols = line.split('\t')
-		if len(cols) <  3:
-			logging.debug('input fields less than 3')
-			continue
-		if cols[0].strip()== "": 
-			continue
-		if cols[1].strip()== "": 
-			continue
-		if cols[2].strip()== "": 
-			continue
-		#string label to int label
-		try:
-			val_y = int(cols[2])
-		except:
-			continue	
-		x1_list.append(cols[0])
-		x2_list.append(cols[1])
-		label_list.append(val_y)
-
-		#print cols[0]
-		#print cols[1]
-		#print (val_y)
-	x1 = loadFeatures(x1_list)
-	x2 = loadFeatures(x2_list)
-	if label_type == "onehot":
-		label_list = denseToOneHot(np.array(label_list),2)
-	elif label_type == "scalar":
-		label_list = np.reshape(label_list,(-1,1))
-	elif label_type == "scalar_revert":
-		#label_list[:] = [1-x for x in label_list]
-		#label_list = np.reshape(label_list,(-1,1))
-		pass
-	return x1, x2, label_list
-
-'''
-
-'''
-def list_to_predict_data(inlist):
-	x1_list = []
-	x2_list = []
-	for line in inlist:
-		line = line.strip()
-		if line == "": continue
-		cols = line.split('\t')
-		if len(cols) < 2:
-			logging.debug('input fields less than 2')
-			continue
-		if cols[0].strip() == "":
-			continue
-		if cols[1].strip() == "":
-			continue
-		x1_list.append(cols[0])
-		x2_list.append(cols[1])
-
-	x1 = loadFeatures(x1_list)
-	x2 = loadFeatures(x2_list)
-	return x1, x2	
-'''	
 
 
 ##let's define a simple graph here
@@ -236,12 +93,11 @@ def fc_layer(input, weight_shape, bias_shape, name):
 
 #define place holders for inputs
 with tf.name_scope("inputs"):
-	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input")
-	x2 = tf.placeholder(tf.float32,  [None, IMG_SIZE * IMG_SIZE * 3], name = "x2_input")
-
-	#y = tf.placeholder(tf.float32,[None,1], name = "y_input")	
+	#x1 = tf.placeholder(tf.float32, [None, dataloader.ImageLoader.IMG_SIZE * dataloader.ImageLoader.IMG_SIZE * 3], name ="x1_input") 
+	#x2 = tf.placeholder(tf.float32,  [None, dataloader.ImageLoader.IMG_SIZE * dataloader.ImageLoader.IMG_SIZE * 3], name = "x2_input")
+	x1 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name ="x1_input") 
+	x2 = tf.placeholder(tf.float32, [None, IMG_SIZE * IMG_SIZE * 3], name = "x2_input")
 	y = tf.placeholder(tf.float32,[None], name = "y_input")	
-	#y = tf.placeholder(tf.float32,[None,2], name = "y_input")	
 	keep_prob = tf.placeholder(tf.float32, name = "keep_prob")
 
 
@@ -254,17 +110,21 @@ with tf.name_scope("leftlayers"):
 		#kernel = 3*3, input chanel =3, output chanel = 32
 		#stride = 2,2
 		#h_pool1 = conv_relu_maxpool(x1_image, [3,3,3,32],[32], "conv11") #128 -> 32 
-		h_pool1 = conv_relu_maxpool_dropout(x1_image, [3,3,3,32],[32], "conv11", 0.7) #128 -> 64
+		h_pool1 = conv_relu_maxpool_dropout(x1_image, [3,3,3,32],[32], "conv11", keep_prob) #128 -> 64
 		#h_pool2 = conv_relu_maxpool(h_pool1, [3,3,32,64],[64], "conv12") # 32-> 8
-		h_pool2 = conv_relu_maxpool_dropout(h_pool1, [3,3,32,64],[64], "conv12", 0.7) # 64-> 32
+		h_pool2 = conv_relu_maxpool_dropout(h_pool1, [3,3,32,64],[64], "conv12", keep_prob) # 64-> 32
 		
-		h_pool3 = conv_relu_maxpool_dropout(h_pool2, [3,3,64,128],[128], "conv13", 0.7) # 32->16 
+		h_pool3 = conv_relu_maxpool_dropout(h_pool2, [3,3,64,128],[128], "conv13", keep_prob) # 32->16 
 
-		h_pool3_flat = tf.reshape(h_pool3, [-1, 16*16*128])
+		
+		h_pool4 = conv_relu_maxpool_dropout(h_pool3, [3,3,128,256],[256], "conv14", keep_prob) # 16 -> 8 
+
+		h_pool4_flat = tf.reshape(h_pool4, [-1, 8*8*256])
+		#h_pool3_flat = tf.reshape(h_pool3, [-1, 16*16*128])
 		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 	
 		#fc1 layer:
-		h_fc1 = fc_layer(h_pool3_flat, [16*16*128, 1024],[1024], "fc11")
+		h_fc1 = fc_layer(h_pool4_flat, [8*8*256, 1024],[1024], "fc11")
 		h_fc1 = tf.nn.relu(h_fc1)
 		#h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 '''
@@ -288,19 +148,22 @@ with tf.name_scope("rightlayers"):
 with tf.name_scope("rightlayers"):
 
 	with tf.variable_scope("trained_variables", reuse=True):
-		x2_image = tf.reshape(x2, [-1, IMG_SIZE, IMG_SIZE, 3])
+		x2_image = tf.reshape(x2, [-1, dataloader.ImageLoader.IMG_SIZE, dataloader.ImageLoader.IMG_SIZE, 3])
 	
 		#h2_pool1 = conv_relu_maxpool(x2_image, [3,3,3,32],[32], "conv11") #128 -> 32
-		h2_pool1 = conv_relu_maxpool_dropout(x2_image, [3,3,3,32],[32], "conv11", 0.7) #128 ->64 
+		h2_pool1 = conv_relu_maxpool_dropout(x2_image, [3,3,3,32],[32], "conv11", keep_prob) #128 ->64 
 		#h2_pool2 = conv_relu_maxpool(h2_pool1, [3,3,32,64],[64], "conv12") # 32-> 8
-		h2_pool2 = conv_relu_maxpool_dropout(h2_pool1, [3,3,32,64],[64], "conv12", 0.7) # 64 -> 32
+		h2_pool2 = conv_relu_maxpool_dropout(h2_pool1, [3,3,32,64],[64], "conv12", keep_prob) # 64 -> 32
 		
-		h2_pool3 = conv_relu_maxpool_dropout(h2_pool2, [3,3,64,128],[128], "conv13", 0.7) # 32 ->16 
+		h2_pool3 = conv_relu_maxpool_dropout(h2_pool2, [3,3,64,128],[128], "conv13", keep_prob) # 32 ->16 
 
-		h2_pool3_flat = tf.reshape(h2_pool3, [-1, 16*16*128])
+		h2_pool4 = conv_relu_maxpool_dropout(h2_pool3, [3,3,128,256],[256], "conv14", keep_prob) # 32 ->16 
+
+		h2_pool4_flat = tf.reshape(h2_pool4, [-1, 8*8*256])
+		#h2_pool3_flat = tf.reshape(h2_pool3, [-1, 16*16*128])
 		#h_pool2_flat = tf.Print(h_pool2_flat,[h_pool2_flat], "h_pool2_flat:")
 		#fc1 layer:
-		h2_fc1 = fc_layer(h2_pool3_flat, [16*16*128, 1024],[1024], "fc11")
+		h2_fc1 = fc_layer(h2_pool4_flat, [8*8*256, 1024],[1024], "fc11")
 		h2_fc1 = tf.nn.relu(h2_fc1)
 		#h2_fc1_drop = tf.nn.dropout(h2_fc1, keep_prob)
 

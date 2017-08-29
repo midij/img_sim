@@ -176,7 +176,6 @@ class DataLoader(object):
 
 
 class ImageLoader(object):
-	
 	IMG_SIZE = 128
 	def denseToOneHot(self, labels_dense, num_classes):
    		#Convert class labels from scalars to one-hot vectors.
@@ -194,7 +193,6 @@ class ImageLoader(object):
 		for n, f in enumerate(files):
 			logging.debug('loading file #%d' % n)
 			img = cv2.imread(f)
-        		#print(img.shape)
 			#img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 			#cv2.imshow("orig", img)
 			h, w, _ = img.shape

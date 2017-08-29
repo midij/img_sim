@@ -390,12 +390,15 @@ def predict_siamese_sim_with_accuracy(pairlist):
 def predict_siamese_sim(pairlist):
 
 	image_loader = dataloader.ImageLoader()
+	results = []
 	for pair in pairlist:
 		pre_x1, pre_x2 = image_loader.list_to_predict_data([pair])
 		#print ("predict results:",  sess.run(logits, feed_dict = {x1:pre_x1, x2:pre_x2, keep_prob:1}))
 		dist = sess.run(eucd, feed_dict = {x1: pre_x1, x2: pre_x2, keep_prob:1})
-		print "predict: " + pair + "\t"+ str(dist[0])
-
+		tmpstr = "predict: " + pair + "\t"+ str(dist[0])
+		print tmpstr
+		results.append(str(dist[0]))
+	return results
 
 
 def export_model_for_serving():
@@ -427,6 +430,12 @@ def export_model_for_serving():
 	)
 	builder.save()
 	print "Done Exporting!"
+
+def load_model_for_flask_serving(modelname):
+	load_model(modelname)
+	print "waiting input to do prediction"		
+	#predict_siamese_sim(pred_list) #only x1 and x2
+	
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
@@ -478,4 +487,3 @@ if __name__ == '__main__':
 	else:
 		print_usage()
 	sys.exit()
-	

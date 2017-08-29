@@ -1,13 +1,15 @@
 import cv2
 import sys
 
-cascPath = "haarcascade_frontalface_default.xml"
+#in order for the face detector been used by both modules.
+cascPath = "../face_detector/haarcascade_frontalface_default.xml"
 
 	
 
 #only save the first recoganized face
-def do_corp(infilestr):
-	ofilestr = None
+def do_corp(infilestr, ofilestr = None):
+	
+	#ofilestr = None
 	# Creatge the haar cascade
 	faceCascade= cv2.CascadeClassifier(cascPath)
 	# read teh image
@@ -22,7 +24,10 @@ def do_corp(infilestr):
 		minSize = (30,30),
 		flags = cv2.cv.CV_HAAR_SCALE_IMAGE
 	)
-		
+
+	if len(faces) == 0:
+		return None	
+
 	for (x, y, w, h) in faces:
 		pad = 20
 			
@@ -30,11 +35,12 @@ def do_corp(infilestr):
 		img = image[y:y+h, x:x+w]
 		#cv2.rectangle(image, (x,y), (x+w, y+h), (0,255,0),2)
 
-		idx = infilestr.rfind('.')
-		if idx == -1: break
-		name = infilestr[:idx]
-		suffix = infilestr[idx+1:]	
-		ofilestr = name+"_face." + suffix
+		if ofilestr is None:
+			idx = infilestr.rfind('.')
+			if idx == -1: break
+			name = infilestr[:idx]
+			suffix = infilestr[idx+1:]	
+			ofilestr = name+"_face." + suffix
 		cv2.imwrite(ofilestr, img)
 		break	
 
@@ -65,7 +71,10 @@ def gen_corpedface(dataconf,newdataconf):
 			
 			ofile.write("\t".join([ofstr1, ofstr2, label])+"\n")				
 	ofile.close()
-			
+		
 if __name__ == "__main__":
 	# A0003382e9eb11ce83484a46e1c412837.jpg
 	gen_corpedface("dataset_conf_path.txt", "face_dataset_conf_path.txt")
+	#print do_corp("billgate_1.JPG")	
+	#print do_corp("fan-bingbing-1-jpg.jpg")	
+ 

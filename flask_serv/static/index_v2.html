@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Compare Images, using templates</title>
+  <style type="text/css">
+	img{
+		max-width: 100%;
+		max-height: 100%;
+	}
+	
+	.square{
+		height: 300px;
+		width: 300px;
+	}
+	.imgContainer{
+	    float:left;
+	}	
+  </style>
+</head>
+<body>
+    <form name="form1" id="form1" action = "sim2" method="post" enctype="multipart/form-data">  
+	<!--
+		<p>image1: <input type="file" name="image1" id="image1" onchange="loadFile(event, 'showimg1')">
+		<div class ="square"><img id = "showimg1" src = "#" alt = "image1"></div> </p>
+		<p>image2: <input type="file" name="image2" id="image2" onchange="loadFile(event, 'showimg2')">
+		<div class="square"><img id = "showimg2" src = "#" alt = "image2"></div></p>
+		<div><input type="submit" name="b1" value="submit" ><div>
+	-->
+	<div>
+		<div class="imgContainer">
+			<!--<div class ="square"><img id = "showimg1" src = "#" alt = "image1"></div>-->
+			<div class = "square"><img id = "showimg1" src = "none.jpg" alt = "image1"></div>
+			<input type="file" name="image1" id="image1" onchange="loadFile(event, 'showimg1')">
+		</div>
+
+		<div class="imgContainer">
+			<div class="square"><img id = "showimg2" src = "none.jpg" alt = "image2"></div>
+			<input type="file" name="image2" id="image2" onchange="loadFile(event, 'showimg2')">
+		</div >
+		
+	</div>
+	<br>
+
+	<div>
+		<div>
+			<input type = "radio" name = "type" id = "face" value = "face" checked = "checked"> similarity with face detector <br>
+			<input type = "radio" name = "type" id = "picture" value = "picture"> similarity of the whole picture <br>	
+		</div>
+		<div>
+			<input type="submit" name="b1" value="get similarity" >
+		</div>
+	</div>
+    </form>  
+</body>
+
+<script> 
+var loadFile = function(event, showimgid) {
+
+    var reader = new FileReader();
+    reader.onload = function(){
+      var output = document.getElementById(showimgid);
+      output.src = reader.result;
+    };
+    reader.readAsDataURL(event.target.files[0]);
+};
+</script>
+</html>

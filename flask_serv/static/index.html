@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Compare Images, using templates</title>
+  <script src="https://d3js.org/d3-collection.v1.min.js"></script>
+  <script src="https://d3js.org/d3-dispatch.v1.min.js"></script>
+  <script src="https://d3js.org/d3-dsv.v1.min.js"></script>
+  <script src="https://d3js.org/d3-request.v1.min.js"></script>
+  <style type="text/css">
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    padding: 20px;
+  }
+	img{
+		max-width: 100%;
+		max-height: 100%;
+	}
+	.images-container{
+    display: flex;
+    width: 100%;
+	}
+  .image-upload {
+    border: 6px dashed #ccc;
+    cursor: pointer;
+    width: 50%;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+  }
+  .image-upload:nth-child(n+2) {
+    margin-left: 40px;
+  }
+  .image-upload:before {
+    content: 'Drag image here';
+    display: block;
+    width: 100%;
+    height: 100%;
+    color: #ccc;
+    min-height: 360px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 360px;
+  }
+  .image-upload.loaded {
+    border-color: transparent;
+  }
+  .image-upload.loaded:before {
+    opacity: 0;
+  }
+  .image-upload.dragover:hover:before {
+    content: 'Drop image here';
+  }
+  .image-upload:hover:before {
+    content: 'Click to choose file';
+    color: #fff;
+    background: rgba(178,200,200,0.5);
+    opacity: 1 !important;
+  }
+  input[type="file"] {
+    visibility: hidden;
+  }
+  .options-container {
+  }
+  #result {
+  }
+  </style>
+</head>
+<body>
+	<div class="images-container">
+		<div id="image1" class="image-upload"></div>
+		<div id="image2" class="image-upload"></div >
+	</div>
+	<br>
+
+	<div class="options-container">
+    <div>
+		  <input type="radio" name="type" id="face" value="face" checked="checked" />
+      <label for="face">similarity with face detector<label>
+    </label>
+    <div>
+      <input type="radio" name="type" id="picture" value="picture" />
+      <label for="picture">similarity of the whole picture<label>
+    </label>
+	</div>
+
+  <div id="result"></div>
+
+</body>
+
+<script> 
+
+//var SERVER = 'http://sim';
+//var SERVER = 'http://yidaiyilu.ddns.net:19877/sim';
+var SERVER = 'http://yidaiyilu.ddns.net:8080/sim';
+// Default values
+var formValues = {
+  image1: null,
+  image2: null,
+  type: 'face'
+};
+
+init();
+
+function init() {
+  var imageUploaders = document.querySelectorAll('.image-upload');
+  for (var i = 0; i < imageUploaders.length; i++) {
+    var element = imageUploaders[i];
+    element.onclick = uploadFile;
+    element.ondragover = onDragover;
+    element.ondragenter = onDragover;
+    element.ondragend = onDragleave;
+    element.ondragleave = onDragleave;
+    element.ondrop = onDrop;
+  }
+
+  var inputs = document.querySelectorAll('input');
+  for (var i = 0; i < inputs.length; i++) {
+    inputs[i].onchange = onInputChange;
+  }
+
+}
+
+function onDragover(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.target.classList.add('dragover');
+}
+
+function onDragleave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.target.classList.remove('dragover');
+}
+
+function onDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.target.classList.remove('dragover');
+
+  readImage(event.dataTransfer.files, event.target);
+}
+
+function onInputChange(event) {
+  updateResult(event.target.name, event.target.value);
+}
+
+function uploadFile(event) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = "image/*";
+  input.onchange = e => {
+    readImage(e.target.files, event.target);
+    document.body.removeChild(input);
+  };
+
+  document.body.appendChild(input);
+  input.click();
+}
+
+function readImage(files, target) {
+  var reader = new FileReader();
+  reader.onload = function(){
+    target.classList.add('loaded');
+    target.style.backgroundImage = 'url(' + reader.result + ')';
+    updateResult(target.id, reader.result);
+  };
+  reader.readAsDataURL(files[0]);
+}
+
+function updateResult(key, value) {
+  formValues[key] = value;
+
+  // All values are populated, submit to server
+  var formData = new FormData();
+  for (var i in formValues) {
+    if (!formValues[i]) {
+      // Missing value, abort
+      return;
+    }
+    formData.append(i, formValues[i]);
+  }
+ 	
+  let data = {};
+  for (let tuple of formData.entries()) data[tuple[0]] = tuple[1]; 
+  
+   //to send json instead of form
+   
+  d3.request(SERVER)
+    .header('Content-Type', 'application/json; charset=UTF-8')
+    .post(JSON.stringify(data), onResult);
+   /*
+   d3.request(SERVER)
+    .header('Content-Type', 'multipart/form-data')
+    .post(formData, onResult);
+   */
+}
+
+function onResult(xhr) {
+  document.getElementById('result').innerHTML = xhr && xhr.responseText;
+}
+
+</script>
+</html>
